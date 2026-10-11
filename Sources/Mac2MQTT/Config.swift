@@ -122,6 +122,14 @@ public struct AppConfig: Codable {
         return initial
     }
 
+    public static func resetToDefaults() -> AppConfig {
+        try? FileManager.default.removeItem(at: configURL)
+        try? FileManager.default.removeItem(at: legacyConfigURL)
+        let initial = defaultConfig
+        initial.save()
+        return initial
+    }
+
     public func save() {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted

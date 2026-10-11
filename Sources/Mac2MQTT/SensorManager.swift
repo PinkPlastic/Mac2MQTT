@@ -34,21 +34,11 @@ public struct SensorSnapshot: Sendable {
     public var appVersion: String
 }
 
-public final class SensorManager: NSObject, @unchecked Sendable, CLLocationManagerDelegate {
+public final class SensorManager: NSObject, @unchecked Sendable {
     private var prevCpuInfo: host_cpu_load_info?
-    private var locationManager: CLLocationManager?
 
     public override init() {
         super.init()
-        setupPermissions()
-    }
-
-    private func setupPermissions() {
-        DispatchQueue.main.async {
-            self.locationManager = CLLocationManager()
-            self.locationManager?.delegate = self
-            self.locationManager?.requestWhenInUseAuthorization()
-        }
     }
 
     public func collectSnapshot(trigger: String = "Periodic") -> SensorSnapshot {

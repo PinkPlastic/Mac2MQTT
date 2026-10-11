@@ -15,73 +15,89 @@ if [ ! -d "$APP_PATH" ]; then
     "$DIR/bundle.sh"
 fi
 
-# 2. Generate retina background image if needed
+# 2. Generate retina light gray background image
 BG_IMAGE="$DIR/Resources/dmg_background.png"
-if [ ! -f "$BG_IMAGE" ]; then
-    echo "Generating DMG background image..."
-    swift -e '
-    import AppKit
-    let width: CGFloat = 540
-    let height: CGFloat = 360
-    let scale: CGFloat = 2.0
-    let size = NSSize(width: width * scale, height: height * scale)
-    let image = NSImage(size: size)
-    image.lockFocus()
-    guard let ctx = NSGraphicsContext.current?.cgContext else { fatalError() }
-    ctx.scaleBy(x: scale, y: scale)
+echo "Generating sleek light gray DMG background image..."
+swift -e '
+import AppKit
+let width: CGFloat = 540
+let height: CGFloat = 360
+let scale: CGFloat = 2.0
+let size = NSSize(width: width * scale, height: height * scale)
+let image = NSImage(size: size)
+image.lockFocus()
+guard let ctx = NSGraphicsContext.current?.cgContext else { fatalError() }
+ctx.scaleBy(x: scale, y: scale)
 
-    // Dark sleek background
-    let colorSpace = CGColorSpaceCreateDeviceRGB()
-    let bgColors = [
-        NSColor(red: 0.11, green: 0.12, blue: 0.15, alpha: 1.0).cgColor,
-        NSColor(red: 0.08, green: 0.09, blue: 0.11, alpha: 1.0).cgColor
-    ] as CFArray
-    let gradient = CGGradient(colorsSpace: colorSpace, colors: bgColors, locations: [0.0, 1.0])!
-    ctx.drawLinearGradient(gradient, start: CGPoint(x: 0, y: height), end: CGPoint(x: 0, y: 0), options: [])
+// 1. Sleek light gray gradient (native macOS light aesthetic)
+let colorSpace = CGColorSpaceCreateDeviceRGB()
+let bgColors = [
+    NSColor(red: 0.96, green: 0.965, blue: 0.975, alpha: 1.0).cgColor,
+    NSColor(red: 0.89, green: 0.90, blue: 0.92, alpha: 1.0).cgColor
+] as CFArray
+let gradient = CGGradient(colorsSpace: colorSpace, colors: bgColors, locations: [0.0, 1.0])!
+ctx.drawLinearGradient(gradient, start: CGPoint(x: 0, y: height), end: CGPoint(x: 0, y: 0), options: [])
 
-    // Subtle border
-    ctx.setStrokeColor(NSColor(white: 1.0, alpha: 0.07).cgColor)
-    ctx.setLineWidth(1.0)
-    ctx.stroke(CGRect(x: 0.5, y: 0.5, width: width - 1, height: height - 1))
+// 2. Subtle border
+ctx.setStrokeColor(NSColor(white: 0.0, alpha: 0.08).cgColor)
+ctx.setLineWidth(1.0)
+ctx.stroke(CGRect(x: 0.5, y: 0.5, width: width - 1, height: height - 1))
 
-    // Sleek guidance arrow in center (between icons at y = 180)
-    let arrowPath = CGMutablePath()
-    let startX: CGFloat = 215
-    let endX: CGFloat = 325
-    let centerY: CGFloat = 180
-    let head: CGFloat = 12
+// 3. Vibrant Apple-blue guidance arrow in center (between icons at y = 180)
+let arrowPath = CGMutablePath()
+let startX: CGFloat = 215
+let endX: CGFloat = 325
+let centerY: CGFloat = 180
+let head: CGFloat = 12
 
-    arrowPath.move(to: CGPoint(x: startX, y: centerY))
-    arrowPath.addLine(to: CGPoint(x: endX, y: centerY))
-    arrowPath.move(to: CGPoint(x: endX - head, y: centerY + head * 0.75))
-    arrowPath.addLine(to: CGPoint(x: endX, y: centerY))
-    arrowPath.addLine(to: CGPoint(x: endX - head, y: centerY - head * 0.75))
+arrowPath.move(to: CGPoint(x: startX, y: centerY))
+arrowPath.addLine(to: CGPoint(x: endX, y: centerY))
+arrowPath.move(to: CGPoint(x: endX - head, y: centerY + head * 0.75))
+arrowPath.addLine(to: CGPoint(x: endX, y: centerY))
+arrowPath.addLine(to: CGPoint(x: endX - head, y: centerY - head * 0.75))
 
-    ctx.addPath(arrowPath)
-    ctx.setStrokeColor(NSColor(red: 0.35, green: 0.65, blue: 1.0, alpha: 0.85).cgColor)
-    ctx.setLineWidth(4.0)
-    ctx.setLineCap(.round)
-    ctx.setLineJoin(.round)
-    ctx.strokePath()
+ctx.addPath(arrowPath)
+ctx.setStrokeColor(NSColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 0.9).cgColor)
+ctx.setLineWidth(4.0)
+ctx.setLineCap(.round)
+ctx.setLineJoin(.round)
+ctx.strokePath()
 
-    // Instruction text
-    let text = "Drag to Applications to install"
-    let font = NSFont.systemFont(ofSize: 13, weight: .semibold)
-    let textAttrs: [NSAttributedString.Key: Any] = [
-        .font: font,
-        .foregroundColor: NSColor(white: 0.85, alpha: 0.75)
-    ]
-    let textSize = (text as NSString).size(withAttributes: textAttrs)
-    let textPoint = CGPoint(x: (width - textSize.width) / 2, y: 55)
-    (text as NSString).draw(at: textPoint, withAttributes: textAttrs)
+// 4. Header title & subtitle
+let title = "Mac2MQTT"
+let titleFont = NSFont.systemFont(ofSize: 15, weight: .bold)
+let titleAttrs: [NSAttributedString.Key: Any] = [
+    .font: titleFont,
+    .foregroundColor: NSColor(white: 0.18, alpha: 0.95)
+]
+let titleSize = (title as NSString).size(withAttributes: titleAttrs)
+(title as NSString).draw(at: CGPoint(x: (width - titleSize.width) / 2, y: 310), withAttributes: titleAttrs)
 
-    image.unlockFocus()
-    guard let tiff = image.tiffRepresentation,
-          let rep = NSBitmapImageRep(data: tiff),
-          let png = rep.representation(using: .png, properties: [:]) else { fatalError() }
-    try! png.write(to: URL(fileURLWithPath: "'"$BG_IMAGE"'"))
-    '
-fi
+let sub = "Home Assistant Agent for macOS"
+let subFont = NSFont.systemFont(ofSize: 11, weight: .medium)
+let subAttrs: [NSAttributedString.Key: Any] = [
+    .font: subFont,
+    .foregroundColor: NSColor(white: 0.42, alpha: 0.85)
+]
+let subSize = (sub as NSString).size(withAttributes: subAttrs)
+(sub as NSString).draw(at: CGPoint(x: (width - subSize.width) / 2, y: 292), withAttributes: subAttrs)
+
+// 5. Instruction text
+let text = "Drag to Applications to install"
+let font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+let textAttrs: [NSAttributedString.Key: Any] = [
+    .font: font,
+    .foregroundColor: NSColor(white: 0.32, alpha: 0.95)
+]
+let textSize = (text as NSString).size(withAttributes: textAttrs)
+(text as NSString).draw(at: CGPoint(x: (width - textSize.width) / 2, y: 55), withAttributes: textAttrs)
+
+image.unlockFocus()
+guard let tiff = image.tiffRepresentation,
+      let rep = NSBitmapImageRep(data: tiff),
+      let png = rep.representation(using: .png, properties: [:]) else { fatalError() }
+try! png.write(to: URL(fileURLWithPath: "'"$BG_IMAGE"'"))
+'
 
 # 3. Create a temporary read-write disk image
 echo "Creating temporary read-write disk image..."

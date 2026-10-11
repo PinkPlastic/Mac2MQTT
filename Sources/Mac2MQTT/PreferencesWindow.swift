@@ -194,6 +194,12 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
         bottomDivider.boxType = .separator
         contentView.addSubview(bottomDivider)
 
+        let resetBtn = NSButton(title: "Reset to Defaults", target: self, action: #selector(resetDefaultsClicked))
+        resetBtn.frame = NSRect(x: 20, y: 10, width: 130, height: 28)
+        resetBtn.bezelStyle = .rounded
+        resetBtn.font = NSFont.systemFont(ofSize: 11)
+        contentView.addSubview(resetBtn)
+
         let doneButton = NSButton(title: "Done", target: self, action: #selector(doneClicked))
         doneButton.frame = NSRect(x: width - 96, y: 10, width: 82, height: 28)
         doneButton.bezelStyle = .rounded
@@ -619,6 +625,34 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
     }
 
     // MARK: - Save & Close
+
+    @objc private func resetDefaultsClicked() {
+        let alert = NSAlert()
+        alert.messageText = "Reset to Default Settings?"
+        alert.informativeText = "This will erase local broker credentials and restore default sensor settings. No personal data will be kept."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Reset")
+        alert.addButton(withTitle: "Cancel")
+        if alert.runModal() == .alertFirstButtonReturn {
+            let fresh = AppConfig.resetToDefaults()
+            self.config = fresh
+            if hostField != nil {
+                hostField.stringValue = fresh.mqttHost
+                portField.stringValue = String(fresh.mqttPort)
+                tlsCheckbox.state = fresh.useTLS ? .on : .off
+                usernameField.stringValue = fresh.mqttUsername
+                passwordField.stringValue = fresh.mqttPassword
+                deviceNameField.stringValue = fresh.deviceName
+                deviceIdField.stringValue = fresh.deviceId
+                intervalField.stringValue = String(Int(fresh.updateInterval))
+            }
+            for (id, cb) in sensorCheckboxes {
+                cb.state = fresh.isSensorEnabled(id) ? .on : .off
+            }
+            updateSensorSummary()
+            onSave(fresh)
+        }
+    }
 
     @objc private func doneClicked() {
         saveAndApply()
