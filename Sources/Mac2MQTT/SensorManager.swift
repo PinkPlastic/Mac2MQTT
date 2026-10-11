@@ -274,10 +274,15 @@ public final class SensorManager: NSObject, @unchecked Sendable, CLLocationManag
     // MARK: - Wi-Fi & Network
 
     private func getNetworkInfo() -> (ssid: String, bssid: String, type: String) {
-        if let iface = CWWiFiClient.shared().interface() {
-            if let ssid = iface.ssid(), !ssid.isEmpty {
-                let bssid = iface.bssid() ?? "Not Available"
-                return (ssid, bssid, "Wi-Fi")
+        // Only query CWWiFiClient if location permission has already been granted.
+        // Calling iface.ssid() when authorization is notDetermined triggers an unprompted macOS dialog!
+        let locStatus = CLLocationManager().authorizationStatus
+        if locStatus == .authorizedAlways {
+            if let iface = CWWiFiClient.shared().interface() {
+                if let ssid = iface.ssid(), !ssid.isEmpty {
+                    let bssid = iface.bssid() ?? "Not Available"
+                    return (ssid, bssid, "Wi-Fi")
+                }
             }
         }
 

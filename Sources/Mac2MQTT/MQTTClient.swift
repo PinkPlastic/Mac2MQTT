@@ -47,7 +47,7 @@ public final class MQTTClient: @unchecked Sendable {
 
     private var config: Config
     private var connection: NWConnection?
-    private let queue = DispatchQueue(label: "com.hassmacagent.mqtt", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "com.mac2mqtt.mqtt", qos: .userInitiated)
     private var pingTimer: DispatchSourceTimer?
     private var reconnectTimer: DispatchSourceTimer?
     private var isConnected = false

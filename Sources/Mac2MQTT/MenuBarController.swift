@@ -43,6 +43,8 @@ public final class MenuBarController: NSObject {
     }()
     private var statusDebounceItem: DispatchWorkItem?
 
+    private var liveHeaderSeparator: NSMenuItem!
+    private var liveHeader: NSMenuItem!
     private var appMenuItem: NSMenuItem!
     private var micMenuItem: NSMenuItem!
     private var camMenuItem: NSMenuItem!
@@ -152,9 +154,10 @@ public final class MenuBarController: NSObject {
         updateStatusDisplay(connected: false)
         menu.addItem(statusMenuItem)
 
-        menu.addItem(NSMenuItem.separator())
+        liveHeaderSeparator = NSMenuItem.separator()
+        menu.addItem(liveHeaderSeparator)
 
-        let liveHeader = NSMenuItem(title: "Live Sensors:", action: nil, keyEquivalent: "")
+        liveHeader = NSMenuItem(title: "Live Sensors:", action: nil, keyEquivalent: "")
         liveHeader.isEnabled = false
         menu.addItem(liveHeader)
 
@@ -522,7 +525,7 @@ public final class MenuBarController: NSObject {
         let snapshot = sensorManager.collectSnapshot(trigger: trigger)
         lastSnapshot = snapshot
 
-        // Update Menu UI
+        // Update Live Sensors UI & text
         appMenuItem.title = "  App: \(snapshot.frontmostApp)"
         micMenuItem.title = "  Mic: \(snapshot.isMicInUse ? "🎙️ In Use" : "Inactive")"
         camMenuItem.title = "  Camera: \(snapshot.isCameraInUse ? "📷 In Use" : "Inactive")"
@@ -531,6 +534,29 @@ public final class MenuBarController: NSObject {
         wifiMenuItem.title = "  Wi-Fi: \(snapshot.wifiSSID)"
         focusMenuItem.title = "  Focus Mode: \(snapshot.focusMode)"
         statsMenuItem.title = "  CPU: \(Int(snapshot.cpuUsagePercent))% | RAM: \(Int(snapshot.memoryUsagePercent))%"
+
+        // Hide disabled sensors from the menubar menu
+        let showApp = config.isSensorEnabled("frontmost_app")
+        let showMic = config.isSensorEnabled("audio_input_in_use")
+        let showCam = config.isSensorEnabled("camera_in_use")
+        let showAudio = config.isSensorEnabled("audio_output_in_use") || config.isSensorEnabled("active_audio_output")
+        let showBatt = config.isSensorEnabled("internal_battery_level") || config.isSensorEnabled("power_source")
+        let showWifi = config.isSensorEnabled("wifi_ssid")
+        let showFocus = config.isSensorEnabled("focus") || config.isSensorEnabled("focus_mode")
+        let showStats = config.isSensorEnabled("cpu_usage") || config.isSensorEnabled("memory_usage")
+
+        appMenuItem.isHidden = !showApp
+        micMenuItem.isHidden = !showMic
+        camMenuItem.isHidden = !showCam
+        audioMenuItem.isHidden = !showAudio
+        battMenuItem.isHidden = !showBatt
+        wifiMenuItem.isHidden = !showWifi
+        focusMenuItem.isHidden = !showFocus
+        statsMenuItem.isHidden = !showStats
+
+        let hasAnyLive = showApp || showMic || showCam || showAudio || showBatt || showWifi || showFocus || showStats
+        liveHeader.isHidden = !hasAnyLive
+        liveHeaderSeparator.isHidden = !hasAnyLive
 
         if isConnected {
             discovery.publishState(snapshot: snapshot)
@@ -546,6 +572,7 @@ public final class MenuBarController: NSObject {
                 onSave: { [weak self] newConfig in
                     guard let self = self else { return }
                     self.config = newConfig
+                    self.publishSensorState(trigger: "Preferences Saved")
                     self.mqttClient.disconnect()
                     self.setupMQTT()
                     self.startSensorLoop()

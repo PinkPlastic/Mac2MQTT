@@ -378,37 +378,168 @@
     </div>
   </section>
 
-  <!-- Features Grid -->
-  <section id="features">
+  <!-- Technical Architecture Deep Dive -->
+  <section id="deep-dive" style="background: rgba(255, 255, 255, 0.01); border-top: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border);">
     <div class="container">
-      <h2>Engineered for Power Users</h2>
-      <p class="section-desc">Everything you need to automate your desk and workspace without bogging down your system.</p>
+      <h2>Technical Architecture Deep Dive</h2>
+      <p class="section-desc">Why pure native engineering matters for desktop automation.</p>
 
       <div class="features-grid">
         <div class="feature-card">
-          <h3>⚡ Instant Event Engine</h3>
-          <p>Zero polling loops. Kernel vnode file watchers and Darwin notifications stream Focus mode, frontmost apps, and display changes to Home Assistant the millisecond they happen.</p>
+          <h3>🏎️ Headless Swift vs. Catalyst & WebKit</h3>
+          <p>The official Home Assistant companion app is an iOS app ported via Mac Catalyst. Even when idling in the background, it runs an entire WebKit browser engine with multiple rendering processes, consuming 250MB–650MB of RAM and periodic GPU compositor wakeups. <strong>Mac2MQTT</strong> has zero webview dependencies. Written purely in native Swift with AppKit and Darwin, it runs as a lightweight ~30MB agent.</p>
         </div>
         <div class="feature-card">
-          <h3>🎙️ Audio & Camera Privacy</h3>
-          <p>Instantly trigger "On Air" studio lights or office busy signs when your webcam turns green or your microphone stream begins.</p>
+          <h3>⚡ Push-Driven MQTT vs. HTTP Webhooks</h3>
+          <p>The official companion app sends data over HTTP webhooks, requiring Home Assistant core API routing and cloud proxy hops. Mac2MQTT communicates directly with your local MQTT broker (e.g. Mosquitto) over persistent TCP/TLS. With Last Will and Testament (LWT), Home Assistant instantly knows the exact second your Mac sleeps or goes offline.</p>
         </div>
         <div class="feature-card">
-          <h3>🔋 Power & Battery Telemetry</h3>
-          <p>Monitors battery percentage, state, and AC/battery power transitions via low-level IOKit runloop sources.</p>
+          <h3>🔔 Kernel vnode Watchers vs. Polling</h3>
+          <p>Instead of polling state on a 30-second timer, Mac2MQTT uses kernel-level file descriptor monitors (<code>DispatchSourceFileSystemObject</code>) on macOS's <code>Assertions.json</code> database. When you toggle Focus or Do Not Disturb, Home Assistant receives the updated state in <strong>under 50 milliseconds</strong>.</p>
         </div>
         <div class="feature-card">
-          <h3>🎛️ Remote Control Endpoints</h3>
-          <p>Put your Mac to sleep, lock the screen, or mute system audio right from Home Assistant automation triggers or dashboard cards.</p>
+          <h3>🖥️ Parity with Windows HASS.Agent 2</h3>
+          <p>Mac2MQTT brings the beloved HASS.Agent experience to the Apple ecosystem. Both share identical Home Assistant MQTT Discovery standards (<code>homeassistant/&lt;domain&gt;/&lt;device_id&gt;/&lt;object_id&gt;/config</code>), meaning your Mac gets its own dedicated, first-class Device page in Home Assistant with zero manual YAML configuration.</p>
         </div>
-        <div class="feature-card">
-          <h3>🛡️ Privacy-First Entity Pruning</h3>
-          <p>Uncheck any sensor in the Preferences tab, and Mac2MQTT automatically publishes an empty discovery payload, removing the entity entirely from Home Assistant.</p>
-        </div>
-        <div class="feature-card">
-          <h3>🚀 Clean Menu Bar Citizen</h3>
-          <p>Runs as an accessory background process. No Dock icon, no accidental Cmd+Tab switching, and launches silently at login.</p>
-        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Complete Sensor Reference -->
+  <section id="sensors">
+    <div class="container">
+      <h2>Comprehensive Sensor & Control Matrix</h2>
+      <p class="section-desc">22 native sensors, switches, and remote control buttons published to Home Assistant.</p>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Entity</th>
+              <th>Type</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="6"><strong>Privacy & Audio</strong></td>
+              <td>Microphone In-Use</td>
+              <td><code>binary_sensor</code></td>
+              <td>Active microphone stream detection via CoreAudio listener</td>
+            </tr>
+            <tr>
+              <td>Active Microphone Name</td>
+              <td><code>sensor</code></td>
+              <td>Connected input device (e.g., <em>Blue Yeti</em>, <em>MacBook Pro Mic</em>)</td>
+            </tr>
+            <tr>
+              <td>Camera In-Use</td>
+              <td><code>binary_sensor</code></td>
+              <td>Webcam streaming indicator state</td>
+            </tr>
+            <tr>
+              <td>Active Camera Name</td>
+              <td><code>sensor</code></td>
+              <td>Connected camera device (e.g., <em>FaceTime HD</em>, <em>Logitech Brio</em>)</td>
+            </tr>
+            <tr>
+              <td>Audio Output Playing</td>
+              <td><code>binary_sensor</code></td>
+              <td>Active audio output stream detection</td>
+            </tr>
+            <tr>
+              <td>Active Audio Output Name</td>
+              <td><code>sensor</code></td>
+              <td>Connected output device (e.g., <em>AirPods Pro</em>, <em>Studio Display</em>)</td>
+            </tr>
+            <tr>
+              <td rowspan="6"><strong>System & Presence</strong></td>
+              <td>Frontmost App</td>
+              <td><code>sensor</code></td>
+              <td>Currently focused application (instant event updates)</td>
+            </tr>
+            <tr>
+              <td>User Active</td>
+              <td><code>binary_sensor</code></td>
+              <td><code>true</code> when keyboard/mouse active within last 2 minutes</td>
+            </tr>
+            <tr>
+              <td>Idle Seconds</td>
+              <td><code>sensor</code></td>
+              <td>Exact seconds since last user input via IOHID</td>
+            </tr>
+            <tr>
+              <td>CPU Usage (%)</td>
+              <td><code>sensor</code></td>
+              <td>Overall CPU load percentage sampled via Mach kernel</td>
+            </tr>
+            <tr>
+              <td>Memory Usage (%)</td>
+              <td><code>sensor</code></td>
+              <td>RAM usage percentage from Mach virtual memory stats</td>
+            </tr>
+            <tr>
+              <td>Displays Count</td>
+              <td><code>sensor</code></td>
+              <td>Total connected internal and external displays</td>
+            </tr>
+            <tr>
+              <td rowspan="3"><strong>Network & Wi-Fi</strong></td>
+              <td>Wi-Fi SSID</td>
+              <td><code>sensor</code></td>
+              <td>Connected Wi-Fi network name</td>
+            </tr>
+            <tr>
+              <td>Wi-Fi BSSID</td>
+              <td><code>sensor</code></td>
+              <td>Access Point MAC address</td>
+            </tr>
+            <tr>
+              <td>Connection Type</td>
+              <td><code>sensor</code></td>
+              <td>Network interface (<em>Wi-Fi</em> or <em>Ethernet</em>)</td>
+            </tr>
+            <tr>
+              <td rowspan="2"><strong>Focus Mode</strong></td>
+              <td>Focus Mode Active</td>
+              <td><code>binary_sensor</code></td>
+              <td><code>true</code> when any Focus mode or DND is active</td>
+            </tr>
+            <tr>
+              <td>Focus Mode Name</td>
+              <td><code>sensor</code></td>
+              <td>Active profile name (<em>Work</em>, <em>Personal</em>, <em>Sleep</em>, <em>Off</em>)</td>
+            </tr>
+            <tr>
+              <td rowspan="2"><strong>Power & Battery</strong></td>
+              <td>Battery Level (%)</td>
+              <td><code>sensor</code></td>
+              <td>Internal battery percentage via IOKit</td>
+            </tr>
+            <tr>
+              <td>Battery State & Power Source</td>
+              <td><code>sensor</code></td>
+              <td>Charging state and source (<em>AC Power</em> vs <em>Battery</em>)</td>
+            </tr>
+            <tr>
+              <td rowspan="3"><strong>Remote Controls</strong></td>
+              <td>Sleep Mac</td>
+              <td><code>button</code></td>
+              <td>Trigger Mac to immediately sleep via Home Assistant</td>
+            </tr>
+            <tr>
+              <td>Lock Screen</td>
+              <td><code>button</code></td>
+              <td>Immediately lock screen and sleep displays</td>
+            </tr>
+            <tr>
+              <td>Mute Audio</td>
+              <td><code>switch</code></td>
+              <td>Toggle system output volume mute remotely</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </section>

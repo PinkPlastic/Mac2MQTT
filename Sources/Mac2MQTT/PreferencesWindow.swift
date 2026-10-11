@@ -1,6 +1,10 @@
 import AppKit
 import CoreLocation
 
+final class FlippedView: NSView {
+    override var isFlipped: Bool { true }
+}
+
 @MainActor
 public final class PreferencesWindowController: NSObject, NSWindowDelegate {
     public enum Tab: Int {
@@ -145,8 +149,8 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
             return
         }
 
-        let width: CGFloat = 530
-        let height: CGFloat = 490
+        let width: CGFloat = 550
+        let height: CGFloat = 520
         let win = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),
             styleMask: [.titled, .closable, .miniaturizable],
@@ -334,71 +338,66 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
     // MARK: - Tab 2: Sensors Checklist
 
     private func makeSensorsTabView(width: CGFloat, height: CGFloat) -> NSView {
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: width, height: height))
+        let container = FlippedView(frame: NSRect(x: 0, y: 0, width: width, height: height))
 
         // Top Bar: summary count & quick toggles
         sensorSummaryLabel = NSTextField(labelWithString: "")
-        sensorSummaryLabel.frame = NSRect(x: 20, y: height - 26, width: 220, height: 18)
+        sensorSummaryLabel.frame = NSRect(x: 24, y: 10, width: 220, height: 18)
         sensorSummaryLabel.font = NSFont.systemFont(ofSize: 11, weight: .medium)
         container.addSubview(sensorSummaryLabel)
 
         let enableAllBtn = NSButton(title: "Enable All", target: self, action: #selector(selectAllSensors))
-        enableAllBtn.frame = NSRect(x: width - 180, y: height - 28, width: 76, height: 22)
+        enableAllBtn.frame = NSRect(x: width - 180, y: 8, width: 76, height: 22)
         enableAllBtn.bezelStyle = .inline
         enableAllBtn.font = NSFont.systemFont(ofSize: 11)
         container.addSubview(enableAllBtn)
 
         let disableAllBtn = NSButton(title: "Disable All", target: self, action: #selector(deselectAllSensors))
-        disableAllBtn.frame = NSRect(x: width - 96, y: height - 28, width: 76, height: 22)
+        disableAllBtn.frame = NSRect(x: width - 96, y: 8, width: 76, height: 22)
         disableAllBtn.bezelStyle = .inline
         disableAllBtn.font = NSFont.systemFont(ofSize: 11)
         container.addSubview(disableAllBtn)
 
-        // Scrollable sensor checklist
-        let scrollView = NSScrollView(frame: NSRect(x: 20, y: 10, width: width - 40, height: height - 42))
-        scrollView.hasVerticalScroller = true
-        scrollView.autohidesScrollers = true
-        scrollView.borderType = .bezelBorder
-
-        let categories = ["System & Activity", "Audio & Video", "Battery & Power", "Network", "Focus Mode", "Remote Controls"]
-        var totalHeight: CGFloat = 16
-        for cat in categories {
-            let catSensors = PreferencesWindowController.availableSensors.filter { $0.category == cat }
-            totalHeight += 24 + CGFloat(catSensors.count * 24) + 8
-        }
-
-        let docView = NSView(frame: NSRect(x: 0, y: 0, width: scrollView.contentSize.width, height: max(totalHeight, scrollView.contentSize.height)))
-        var curY = docView.frame.height - 22
-
         sensorCheckboxes.removeAll()
 
-        for cat in categories {
-            let catSensors = PreferencesWindowController.availableSensors.filter { $0.category == cat }
-            guard !catSensors.isEmpty else { continue }
+        // Two Column Organization (No Scroll Needed!)
+        let col1Categories = ["System & Activity", "Focus Mode", "Remote Controls"]
+        let col2Categories = ["Audio & Video", "Battery & Power", "Network"]
 
-            let catLabel = NSTextField(labelWithString: cat)
-            catLabel.frame = NSRect(x: 10, y: curY, width: 300, height: 18)
-            catLabel.font = NSFont.systemFont(ofSize: 11, weight: .bold)
-            catLabel.textColor = .secondaryLabelColor
-            docView.addSubview(catLabel)
-            curY -= 22
+        let colWidth: CGFloat = (width - 64) / 2
+        let col1X: CGFloat = 24
+        let col2X: CGFloat = col1X + colWidth + 16
 
-            for sensor in catSensors {
-                let isEnabled = config.isSensorEnabled(sensor.id)
-                let cb = NSButton(checkboxWithTitle: sensor.name, target: self, action: #selector(sensorCheckboxToggled))
-                cb.frame = NSRect(x: 22, y: curY, width: docView.frame.width - 34, height: 20)
-                cb.font = NSFont.systemFont(ofSize: 12)
-                cb.toolTip = sensor.desc
-                cb.state = isEnabled ? .on : .off
-                sensorCheckboxes[sensor.id] = cb
-                docView.addSubview(cb)
-                curY -= 24
+        func renderColumn(categories: [String], startX: CGFloat, startY: CGFloat) {
+            var curY = startY
+            for cat in categories {
+                let catSensors = PreferencesWindowController.availableSensors.filter { $0.category == cat }
+                guard !catSensors.isEmpty else { continue }
+
+                let catLabel = NSTextField(labelWithString: cat)
+                catLabel.frame = NSRect(x: startX, y: curY, width: colWidth, height: 18)
+                catLabel.font = NSFont.systemFont(ofSize: 11, weight: .bold)
+                catLabel.textColor = .secondaryLabelColor
+                container.addSubview(catLabel)
+                curY += 21
+
+                for sensor in catSensors {
+                    let isEnabled = config.isSensorEnabled(sensor.id)
+                    let cb = NSButton(checkboxWithTitle: sensor.name, target: self, action: #selector(sensorCheckboxToggled))
+                    cb.frame = NSRect(x: startX + 4, y: curY, width: colWidth - 4, height: 19)
+                    cb.font = NSFont.systemFont(ofSize: 12)
+                    cb.toolTip = sensor.desc
+                    cb.state = isEnabled ? .on : .off
+                    sensorCheckboxes[sensor.id] = cb
+                    container.addSubview(cb)
+                    curY += 20
+                }
+                curY += 8
             }
-            curY -= 6
         }
 
-        scrollView.documentView = docView
-        container.addSubview(scrollView)
+        renderColumn(categories: col1Categories, startX: col1X, startY: 36)
+        renderColumn(categories: col2Categories, startX: col2X, startY: 36)
 
         updateSensorSummary()
         return container
