@@ -15,39 +15,37 @@ if [ ! -d "$APP_PATH" ]; then
     "$DIR/bundle.sh"
 fi
 
-# 2. Generate retina light gray background image
+# 2. Generate 540x360 pixel-perfect light gray background image
 BG_IMAGE="$DIR/Resources/dmg_background.png"
-echo "Generating sleek light gray DMG background image..."
+echo "Generating pixel-perfect 540x360 light gray DMG background image..."
 swift -e '
 import AppKit
 let width: CGFloat = 540
 let height: CGFloat = 360
-let scale: CGFloat = 2.0
-let size = NSSize(width: width * scale, height: height * scale)
+let size = NSSize(width: width, height: height)
 let image = NSImage(size: size)
 image.lockFocus()
 guard let ctx = NSGraphicsContext.current?.cgContext else { fatalError() }
-ctx.scaleBy(x: scale, y: scale)
 
 // 1. Sleek light gray gradient (native macOS light aesthetic)
 let colorSpace = CGColorSpaceCreateDeviceRGB()
 let bgColors = [
-    NSColor(red: 0.96, green: 0.965, blue: 0.975, alpha: 1.0).cgColor,
-    NSColor(red: 0.89, green: 0.90, blue: 0.92, alpha: 1.0).cgColor
+    NSColor(red: 0.965, green: 0.97, blue: 0.98, alpha: 1.0).cgColor,
+    NSColor(red: 0.90, green: 0.91, blue: 0.93, alpha: 1.0).cgColor
 ] as CFArray
 let gradient = CGGradient(colorsSpace: colorSpace, colors: bgColors, locations: [0.0, 1.0])!
 ctx.drawLinearGradient(gradient, start: CGPoint(x: 0, y: height), end: CGPoint(x: 0, y: 0), options: [])
 
 // 2. Subtle border
-ctx.setStrokeColor(NSColor(white: 0.0, alpha: 0.08).cgColor)
+ctx.setStrokeColor(NSColor(white: 0.0, alpha: 0.06).cgColor)
 ctx.setLineWidth(1.0)
 ctx.stroke(CGRect(x: 0.5, y: 0.5, width: width - 1, height: height - 1))
 
-// 3. Vibrant Apple-blue guidance arrow in center (between icons at y = 180)
+// 3. Vibrant Apple-blue guidance arrow in center (between icons at y = 175)
 let arrowPath = CGMutablePath()
 let startX: CGFloat = 215
 let endX: CGFloat = 325
-let centerY: CGFloat = 180
+let centerY: CGFloat = 175
 let head: CGFloat = 12
 
 arrowPath.move(to: CGPoint(x: startX, y: centerY))
@@ -57,40 +55,41 @@ arrowPath.addLine(to: CGPoint(x: endX, y: centerY))
 arrowPath.addLine(to: CGPoint(x: endX - head, y: centerY - head * 0.75))
 
 ctx.addPath(arrowPath)
-ctx.setStrokeColor(NSColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 0.9).cgColor)
+ctx.setStrokeColor(NSColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 0.92).cgColor)
 ctx.setLineWidth(4.0)
 ctx.setLineCap(.round)
 ctx.setLineJoin(.round)
 ctx.strokePath()
 
-// 4. Header title & subtitle
+// 4. Header title
 let title = "Mac2MQTT"
-let titleFont = NSFont.systemFont(ofSize: 15, weight: .bold)
+let titleFont = NSFont.systemFont(ofSize: 17, weight: .bold)
 let titleAttrs: [NSAttributedString.Key: Any] = [
     .font: titleFont,
-    .foregroundColor: NSColor(white: 0.18, alpha: 0.95)
+    .foregroundColor: NSColor(white: 0.16, alpha: 0.95)
 ]
 let titleSize = (title as NSString).size(withAttributes: titleAttrs)
-(title as NSString).draw(at: CGPoint(x: (width - titleSize.width) / 2, y: 310), withAttributes: titleAttrs)
+(title as NSString).draw(at: CGPoint(x: (width - titleSize.width) / 2, y: 308), withAttributes: titleAttrs)
 
-let sub = "Home Assistant Agent for macOS"
+// 5. Header subline: "macOS Device Sensors to MQTT"
+let sub = "macOS Device Sensors to MQTT"
 let subFont = NSFont.systemFont(ofSize: 11, weight: .medium)
 let subAttrs: [NSAttributedString.Key: Any] = [
     .font: subFont,
-    .foregroundColor: NSColor(white: 0.42, alpha: 0.85)
+    .foregroundColor: NSColor(white: 0.42, alpha: 0.9)
 ]
 let subSize = (sub as NSString).size(withAttributes: subAttrs)
-(sub as NSString).draw(at: CGPoint(x: (width - subSize.width) / 2, y: 292), withAttributes: subAttrs)
+(sub as NSString).draw(at: CGPoint(x: (width - subSize.width) / 2, y: 288), withAttributes: subAttrs)
 
-// 5. Instruction text
+// 6. Bottom instruction text
 let text = "Drag to Applications to install"
-let font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+let font = NSFont.systemFont(ofSize: 12, weight: .semibold)
 let textAttrs: [NSAttributedString.Key: Any] = [
     .font: font,
-    .foregroundColor: NSColor(white: 0.32, alpha: 0.95)
+    .foregroundColor: NSColor(white: 0.38, alpha: 0.95)
 ]
 let textSize = (text as NSString).size(withAttributes: textAttrs)
-(text as NSString).draw(at: CGPoint(x: (width - textSize.width) / 2, y: 55), withAttributes: textAttrs)
+(text as NSString).draw(at: CGPoint(x: (width - textSize.width) / 2, y: 46), withAttributes: textAttrs)
 
 image.unlockFocus()
 guard let tiff = image.tiffRepresentation,
