@@ -13,14 +13,29 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
         case permissions = 2
     }
 
-    public struct SensorDefinition {
+    public enum RequiredPermission: String, Sendable {
+        case none
+        case fullDiskAccess
+        case location
+    }
+
+    public struct SensorDefinition: Sendable {
         public let id: String
         public let name: String
         public let category: String
         public let desc: String
+        public let requiredPermission: RequiredPermission
+
+        public init(id: String, name: String, category: String, desc: String, requiredPermission: RequiredPermission = .none) {
+            self.id = id
+            self.name = name
+            self.category = category
+            self.desc = desc
+            self.requiredPermission = requiredPermission
+        }
     }
 
-    public static let availableSensors: [SensorDefinition] = [
+    nonisolated public static let availableSensors: [SensorDefinition] = [
         // System & Activity
         SensorDefinition(id: "frontmost_app", name: "Frontmost Application", category: "System & Activity", desc: "Current foreground app name"),
         SensorDefinition(id: "active", name: "User Active / Idle", category: "System & Activity", desc: "User presence and idle detection"),
@@ -45,13 +60,13 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
         SensorDefinition(id: "power_source", name: "Power Source", category: "Battery & Power", desc: "AC Power or Battery"),
 
         // Network
-        SensorDefinition(id: "wifi_ssid", name: "Wi-Fi SSID", category: "Network", desc: "Connected Wi-Fi network name"),
-        SensorDefinition(id: "bssid", name: "Wi-Fi BSSID", category: "Network", desc: "Access Point MAC address"),
+        SensorDefinition(id: "wifi_ssid", name: "Wi-Fi SSID", category: "Network", desc: "Connected Wi-Fi network name", requiredPermission: .location),
+        SensorDefinition(id: "bssid", name: "Wi-Fi BSSID", category: "Network", desc: "Access Point MAC address", requiredPermission: .location),
         SensorDefinition(id: "connection_type", name: "Connection Type", category: "Network", desc: "Wi-Fi or Ethernet"),
 
         // Focus Mode
-        SensorDefinition(id: "focus", name: "Focus Mode Active", category: "Focus Mode", desc: "Indicates whether Focus or Do Not Disturb is active"),
-        SensorDefinition(id: "focus_mode", name: "Focus Mode Name", category: "Focus Mode", desc: "Current Focus mode: Work, DND, etc."),
+        SensorDefinition(id: "focus", name: "Focus Mode Active", category: "Focus Mode", desc: "Indicates whether Focus or Do Not Disturb is active", requiredPermission: .fullDiskAccess),
+        SensorDefinition(id: "focus_mode", name: "Focus Mode Name", category: "Focus Mode", desc: "Current Focus mode: Work, DND, etc.", requiredPermission: .fullDiskAccess),
 
         // Remote Controls
         SensorDefinition(id: "mute_audio", name: "Mute Audio Switch", category: "Remote Controls", desc: "Allows Home Assistant to mute Mac audio"),
@@ -100,7 +115,7 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
 
     // MARK: - Permissions Utilities
 
-    public static func checkFullDiskAccess() -> Bool {
+    nonisolated public static func checkFullDiskAccess() -> Bool {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let assertionsPath = home.appendingPathComponent("Library/DoNotDisturb/DB/Assertions.json").path
         if FileManager.default.isReadableFile(atPath: assertionsPath) {
@@ -113,13 +128,27 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
         return false
     }
 
-    private static let sharedLocationManager = CLLocationManager()
-
-    public static func checkLocationPermission() -> CLAuthorizationStatus {
-        return sharedLocationManager.authorizationStatus
+    nonisolated public static func checkLocationPermission() -> CLAuthorizationStatus {
+        return CLLocationManager().authorizationStatus
     }
 
-    public static func isAllPermissionsGranted() -> Bool {
+    nonisolated public static func isPermissionGranted(for permission: RequiredPermission) -> Bool {
+        switch permission {
+        case .none:
+            return true
+        case .fullDiskAccess:
+            return checkFullDiskAccess()
+        case .location:
+            return checkLocationPermission() == .authorizedAlways
+        }
+    }
+
+    nonisolated public static func isSensorPermitted(_ sensorId: String) -> Bool {
+        guard let def = availableSensors.first(where: { $0.id == sensorId }) else { return true }
+        return isPermissionGranted(for: def.requiredPermission)
+    }
+
+    nonisolated public static func isAllPermissionsGranted() -> Bool {
         let fda = checkFullDiskAccess()
         let loc = checkLocationPermission()
         return fda && (loc == .authorizedAlways)
@@ -241,6 +270,7 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
             sensorsView = view
             view.frame = bounds
             tabContainerView.addSubview(view)
+            updateSensorsPermissionState()
         case .permissions:
             let view = permissionsView ?? makePermissionsTabView(width: bounds.width, height: bounds.height)
             permissionsView = view
@@ -389,11 +419,20 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
 
                 for sensor in catSensors {
                     let isEnabled = config.isSensorEnabled(sensor.id)
+                    let hasPermission = PreferencesWindowController.isPermissionGranted(for: sensor.requiredPermission)
                     let cb = NSButton(checkboxWithTitle: sensor.name, target: self, action: #selector(sensorCheckboxToggled))
                     cb.frame = NSRect(x: startX + 4, y: curY, width: colWidth - 4, height: 19)
                     cb.font = NSFont.systemFont(ofSize: 12)
-                    cb.toolTip = sensor.desc
                     cb.state = isEnabled ? .on : .off
+                    cb.isEnabled = hasPermission
+
+                    if !hasPermission {
+                        let permName = (sensor.requiredPermission == .fullDiskAccess) ? "Full Disk Access" : "Location Services"
+                        cb.toolTip = "\(sensor.desc)\n⚠️ Inactive: Requires \(permName). Grant permission in Permissions tab to enable."
+                    } else {
+                        cb.toolTip = sensor.desc
+                    }
+
                     sensorCheckboxes[sensor.id] = cb
                     container.addSubview(cb)
                     curY += 20
@@ -410,10 +449,38 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
     }
 
     private func updateSensorSummary() {
-        let activeCount = sensorCheckboxes.values.filter { $0.state == .on }.count
+        let activeCount = sensorCheckboxes.values.filter { $0.state == .on && $0.isEnabled }.count
         let totalCount = PreferencesWindowController.availableSensors.count
-        sensorSummaryLabel.stringValue = "\(activeCount) of \(totalCount) sensors enabled"
+        let pendingPermCount = sensorCheckboxes.values.filter { $0.state == .on && !$0.isEnabled }.count
+        if pendingPermCount > 0 {
+            sensorSummaryLabel.stringValue = "\(activeCount) of \(totalCount) enabled (\(pendingPermCount) need permission)"
+        } else {
+            sensorSummaryLabel.stringValue = "\(activeCount) of \(totalCount) sensors enabled"
+        }
         sensorSummaryLabel.textColor = (activeCount > 0) ? .secondaryLabelColor : .systemRed
+    }
+
+    public func updateSensorsPermissionState() {
+        guard !sensorCheckboxes.isEmpty else { return }
+        var newlyPermitted = false
+        for def in PreferencesWindowController.availableSensors {
+            guard def.requiredPermission != .none, let cb = sensorCheckboxes[def.id] else { continue }
+            let hasPermission = PreferencesWindowController.isPermissionGranted(for: def.requiredPermission)
+            if cb.isEnabled != hasPermission {
+                cb.isEnabled = hasPermission
+                if !hasPermission {
+                    let permName = (def.requiredPermission == .fullDiskAccess) ? "Full Disk Access" : "Location Services"
+                    cb.toolTip = "\(def.desc)\n⚠️ Inactive: Requires \(permName). Grant permission in Permissions tab to enable."
+                } else {
+                    cb.toolTip = def.desc
+                    newlyPermitted = true
+                }
+            }
+        }
+        updateSensorSummary()
+        if newlyPermitted {
+            applySensorChanges()
+        }
     }
 
     @objc private func sensorCheckboxToggled() {
@@ -431,7 +498,9 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
 
     @objc private func deselectAllSensors() {
         for (_, cb) in sensorCheckboxes {
-            cb.state = .off
+            if cb.isEnabled {
+                cb.state = .off
+            }
         }
         updateSensorSummary()
         applySensorChanges()
@@ -569,6 +638,7 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
     }
 
     public func refreshPermissionsUI() {
+        updateSensorsPermissionState()
         guard fdaBadgeLabel != nil, locBadgeLabel != nil else { return }
 
         // FDA

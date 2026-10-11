@@ -619,8 +619,9 @@ public final class MenuBarController: NSObject {
         battMenuItem.isHidden = !showBatt
 
         // 7. Network / Wi-Fi
-        let showWifiSsid = config.isSensorEnabled("wifi_ssid")
-        let showWifiBssid = config.isSensorEnabled("bssid")
+        let hasLocation = PreferencesWindowController.isPermissionGranted(for: .location)
+        let showWifiSsid = config.isSensorEnabled("wifi_ssid") && hasLocation
+        let showWifiBssid = config.isSensorEnabled("bssid") && hasLocation
         let showConnType = config.isSensorEnabled("connection_type")
         let showWifi = showWifiSsid || showWifiBssid || showConnType
         if showWifi {
@@ -637,8 +638,9 @@ public final class MenuBarController: NSObject {
         wifiMenuItem.isHidden = !showWifi
 
         // 8. Focus Mode
-        let showFocusActive = config.isSensorEnabled("focus")
-        let showFocusName = config.isSensorEnabled("focus_mode")
+        let hasFDA = PreferencesWindowController.isPermissionGranted(for: .fullDiskAccess)
+        let showFocusActive = config.isSensorEnabled("focus") && hasFDA
+        let showFocusName = config.isSensorEnabled("focus_mode") && hasFDA
         let showFocus = showFocusActive || showFocusName
         if showFocus {
             if showFocusName {

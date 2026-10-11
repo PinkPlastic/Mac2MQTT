@@ -26,8 +26,8 @@ public final class HADiscovery: @unchecked Sendable {
 
         func publishEntity(domain: String, objectId: String, payload: [String: Any]) {
             let topic = "homeassistant/\(domain)/\(config.deviceId)/\(objectId)/config"
-            guard config.isSensorEnabled(objectId) else {
-                // Remove disabled entity from Home Assistant
+            guard config.isSensorEnabled(objectId) && PreferencesWindowController.isSensorPermitted(objectId) else {
+                // Remove disabled/unpermitted entity from Home Assistant
                 client.publish(topic: topic, payload: Data(), retain: true, qos: 1)
                 return
             }
