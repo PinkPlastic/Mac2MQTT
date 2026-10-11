@@ -414,6 +414,73 @@
     </div>
   </section>
 
+  <!-- Legacy mac2mqtt Comparison -->
+  <section id="mac2mqtt-comparison">
+    <div class="container">
+      <h2>StateBeacon vs. Legacy mac2mqtt</h2>
+      <p class="section-desc">Comparison with previous Go-based command-line daemons (bessarabov and ironcrafter54).</p>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th class="highlight-col">StateBeacon</th>
+              <th>Legacy mac2mqtt (Go)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>User Interface</strong></td>
+              <td class="highlight-col">Native macOS Menu Bar extra + Preferences GUI</td>
+              <td>None (Headless terminal daemon)</td>
+            </tr>
+            <tr>
+              <td><strong>Dependencies</strong></td>
+              <td class="highlight-col">Zero external dependencies (Pure Swift + Darwin APIs)</td>
+              <td>Requires Go runtime, Node.js packages, BetterDisplay CLI</td>
+            </tr>
+            <tr>
+              <td><strong>Installation</strong></td>
+              <td class="highlight-col">Drag-and-drop signed DMG installer</td>
+              <td>Terminal compilation, shell scripts, manual LaunchAgent plists</td>
+            </tr>
+            <tr>
+              <td><strong>Sensor Depth</strong></td>
+              <td class="highlight-col">25 sensors, controls, and system telemetry entities</td>
+              <td>4 to 7 basic sensors</td>
+            </tr>
+            <tr>
+              <td><strong>Hardware Privacy</strong></td>
+              <td class="highlight-col">CoreAudio and CoreMediaIO hardware listeners (Mic/Camera)</td>
+              <td>Not supported</td>
+            </tr>
+            <tr>
+              <td><strong>Focus Mode Latency</strong></td>
+              <td class="highlight-col">&lt; 50 ms (Kernel vnode file descriptor watcher)</td>
+              <td>Not supported</td>
+            </tr>
+            <tr>
+              <td><strong>Permission Handling</strong></td>
+              <td class="highlight-col">Full macOS TCC status detection with auto-activation</td>
+              <td>None (Silent failures on blocked permissions)</td>
+            </tr>
+            <tr>
+              <td><strong>Entity Pruning</strong></td>
+              <td class="highlight-col">Automatically removes disabled entities from HA registry</td>
+              <td>None (Orphaned entities persist in Home Assistant)</td>
+            </tr>
+            <tr>
+              <td><strong>Memory Footprint</strong></td>
+              <td class="highlight-col">Stable 25 MB to 45 MB with zero leaks</td>
+              <td>Documented memory leaks under sustained uptime</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- Technical Architecture Deep Dive -->
   <section id="deep-dive" style="background: rgba(255, 255, 255, 0.01); border-top: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border);">
     <div class="container">
