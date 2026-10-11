@@ -184,15 +184,22 @@
     /* Feature Cards */
     .features-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 20px;
       margin-top: 24px;
+    }
+    @media (max-width: 960px) {
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
     }
     .feature-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 12px;
       padding: 24px;
+      overflow-wrap: break-word;
+      word-break: break-word;
     }
     .feature-card h3 {
       font-size: 18px;
@@ -205,6 +212,13 @@
     .feature-card p {
       font-size: 14px;
       color: var(--text-muted);
+      line-height: 1.6;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
+    .feature-card code, code {
+      word-break: break-word;
+      overflow-wrap: anywhere;
     }
 
     /* Steps */
@@ -259,14 +273,14 @@
 
   <header>
     <div class="container">
-      <div class="badge">🚀 macOS 13+ (Ventura, Sonoma, Sequoia)</div>
+      <div class="badge"> Optimized for macOS Golden Gate (Latest) · Supports macOS 13+</div>
       <h1>Live Sensor Reporting for macOS</h1>
       <p class="hero-lead">An ultra-lightweight, native menu bar client that connects your Mac to Home Assistant via MQTT Auto-Discovery with zero webview overhead.</p>
       
       <div class="cta-row">
-        <a href="Mac2MQTT.dmg" download="Mac2MQTT.dmg" class="btn btn-primary">
+        <a href="https://github.com/PinkPlastic/Mac2MQTT/releases/latest" class="btn btn-primary" target="_blank" rel="noopener">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          Download Mac2MQTT.dmg
+          Download Latest Release (.dmg)
         </a>
         <a href="https://github.com/PinkPlastic/Mac2MQTT" class="btn btn-secondary">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -386,20 +400,16 @@
 
       <div class="features-grid">
         <div class="feature-card">
-          <h3>🏎️ Headless Swift vs. Catalyst & WebKit</h3>
-          <p>The official Home Assistant companion app is an iOS app ported via Mac Catalyst. Even when idling in the background, it runs an entire WebKit browser engine with multiple rendering processes, consuming 250MB–650MB of RAM and periodic GPU compositor wakeups. <strong>Mac2MQTT</strong> has zero webview dependencies. Written purely in native Swift with AppKit and Darwin, it runs as a lightweight ~30MB agent.</p>
+          <h3>🏎️ Headless Swift vs. Catalyst &amp; WebKit</h3>
+          <p>The official Home Assistant companion app is an iOS port via Mac Catalyst, running an entire background WebKit browser engine with multiple helper processes consuming 250MB–650MB RAM and GPU compositor wakeups. <strong>Mac2MQTT</strong> has zero webview dependencies—written in pure native Swift with AppKit and Darwin, running as an ultra-lean ~30MB daemon.</p>
         </div>
         <div class="feature-card">
-          <h3>⚡ Push-Driven MQTT vs. HTTP Webhooks</h3>
-          <p>The official companion app sends data over HTTP webhooks, requiring Home Assistant core API routing and cloud proxy hops. Mac2MQTT communicates directly with your local MQTT broker (e.g. Mosquitto) over persistent TCP/TLS. With Last Will and Testament (LWT), Home Assistant instantly knows the exact second your Mac sleeps or goes offline.</p>
+          <h3>⚡ Push-Driven MQTT &amp; Auto-Discovery</h3>
+          <p>Unlike HTTP webhooks with cloud proxy delays, Mac2MQTT maintains a persistent local TCP/TLS socket to your MQTT broker with Last Will &amp; Testament (LWT) for instant sleep/wake detection. It follows standard Home Assistant Discovery conventions (<code>homeassistant/&lt;domain&gt;/...</code>), bringing full feature parity with Windows HASS.Agent for instant zero-YAML setup.</p>
         </div>
         <div class="feature-card">
           <h3>🔔 Kernel vnode Watchers vs. Polling</h3>
-          <p>Instead of polling state on a 30-second timer, Mac2MQTT uses kernel-level file descriptor monitors (<code>DispatchSourceFileSystemObject</code>) on macOS's <code>Assertions.json</code> database. When you toggle Focus or Do Not Disturb, Home Assistant receives the updated state in <strong>under 50 milliseconds</strong>.</p>
-        </div>
-        <div class="feature-card">
-          <h3>🖥️ Parity with Windows HASS.Agent 2</h3>
-          <p>Mac2MQTT brings the beloved HASS.Agent experience to the Apple ecosystem. Both share identical Home Assistant MQTT Discovery standards (<code>homeassistant/&lt;domain&gt;/&lt;device_id&gt;/&lt;object_id&gt;/config</code>), meaning your Mac gets its own dedicated, first-class Device page in Home Assistant with zero manual YAML configuration.</p>
+          <p>Instead of polling state on slow 30-second timers, Mac2MQTT uses kernel-level file descriptor monitors (<code>DispatchSourceFileSystemObject</code>) on macOS's <code>Assertions.json</code> database. When you toggle Focus or Do Not Disturb, Home Assistant receives the updated state in <strong>under 50 milliseconds</strong>.</p>
         </div>
       </div>
     </div>
