@@ -323,7 +323,7 @@
   <section id="comparison">
     <div class="container">
       <h2>Architectural Breakdown</h2>
-      <p class="section-desc">Comparison with the official macOS Companion App and Windows HASS.Agent.</p>
+      <p class="section-desc">Comparison with legacy mac2mqtt, the official macOS Companion App, and Windows HASS.Agent.</p>
 
       <div class="table-container">
         <table>
@@ -331,6 +331,7 @@
             <tr>
               <th>Feature</th>
               <th class="highlight-col">StateBeacon (macOS)</th>
+              <th>Legacy mac2mqtt (Go)</th>
               <th>Official HA Companion (macOS)</th>
               <th>HASS.Agent 2 (Windows)</th>
             </tr>
@@ -339,141 +340,100 @@
             <tr>
               <td><strong>Architecture</strong></td>
               <td class="highlight-col">Native Swift (Darwin and AppKit)</td>
+              <td>Go (Headless CLI daemon)</td>
               <td>Mac Catalyst (iOS UIKit + WebKit)</td>
               <td>.NET 8 / WPF (Win32)</td>
             </tr>
             <tr>
               <td><strong>Protocol</strong></td>
               <td class="highlight-col">Direct MQTT socket (TCP/TLS)</td>
+              <td>MQTT socket (YAML config)</td>
               <td>HTTP Webhooks API</td>
               <td>MQTT socket + local REST API</td>
             </tr>
             <tr>
               <td><strong>HA Setup</strong></td>
               <td class="highlight-col">Automatic MQTT Discovery (Zero YAML)</td>
+              <td>Manual YAML configuration</td>
               <td>Internal Mobile App Integration</td>
               <td>Automatic MQTT Discovery</td>
             </tr>
             <tr>
               <td><strong>Installer Size</strong></td>
               <td class="highlight-col">&lt; 1 MB DMG</td>
+              <td>Source / manual binary</td>
               <td>140 MB &ndash; 180 MB</td>
               <td>60 MB &ndash; 95 MB (.msi)</td>
             </tr>
             <tr>
               <td><strong>Memory Footprint</strong></td>
               <td class="highlight-col">25 MB &ndash; 45 MB</td>
+              <td>Unbounded (Known memory leaks)</td>
               <td>250 MB &ndash; 650 MB (WebKit processes)</td>
               <td>75 MB &ndash; 140 MB</td>
             </tr>
             <tr>
+              <td><strong>Dependencies</strong></td>
+              <td class="highlight-col">Zero (Pure native APIs)</td>
+              <td>Requires npm, BetterDisplay CLI</td>
+              <td>Zero</td>
+              <td>Zero</td>
+            </tr>
+            <tr>
+              <td><strong>Sensor Depth</strong></td>
+              <td class="highlight-col">25 sensors and controls</td>
+              <td>4 to 7 basic sensors</td>
+              <td>Fixed mobile sensors</td>
+              <td>30+ sensors and controls</td>
+            </tr>
+            <tr>
+              <td><strong>Hardware Privacy</strong></td>
+              <td class="highlight-col">CoreAudio / CoreMediaIO listeners (Mic &amp; Cam)</td>
+              <td>Not supported</td>
+              <td>AVFoundation polling</td>
+              <td>Windows Privacy Registry</td>
+            </tr>
+            <tr>
               <td><strong>Focus Mode Latency</strong></td>
               <td class="highlight-col">&lt; 50 ms (Kernel vnode event)</td>
+              <td>Not supported</td>
               <td>30s &ndash; 120s (Polling)</td>
               <td>Windows Focus Assist API</td>
             </tr>
             <tr>
               <td><strong>Frontmost App</strong></td>
               <td class="highlight-col">Immediate (NSWorkspace event)</td>
+              <td>Not supported</td>
               <td>Delayed polling</td>
               <td>Immediate hook</td>
-            </tr>
-            <tr>
-              <td><strong>Microphone In-Use</strong></td>
-              <td class="highlight-col">CoreAudio IO running listener</td>
-              <td>AVFoundation polling</td>
-              <td>Windows Privacy Registry</td>
-            </tr>
-            <tr>
-              <td><strong>Camera In-Use</strong></td>
-              <td class="highlight-col">CoreMedia device state listener</td>
-              <td>AVFoundation polling</td>
-              <td>Windows Privacy Registry</td>
             </tr>
             <tr>
               <td><strong>Audio Device Names</strong></td>
               <td class="highlight-col">Hardware device name strings</td>
               <td>Not supported</td>
+              <td>Not supported</td>
               <td>Endpoint device names</td>
+            </tr>
+            <tr>
+              <td><strong>Permissions (TCC)</strong></td>
+              <td class="highlight-col">Status checks + auto-activation</td>
+              <td>None (Silent failures)</td>
+              <td>System prompt</td>
+              <td>Windows UAC</td>
             </tr>
             <tr>
               <td><strong>Entity Pruning</strong></td>
               <td class="highlight-col">Purges unselected entities in HA</td>
+              <td>No (Orphaned entities persist)</td>
               <td>Not supported</td>
               <td>Configurable</td>
             </tr>
             <tr>
               <td><strong>Interface</strong></td>
               <td class="highlight-col">Menu Bar Extra + Preferences</td>
+              <td>None (Terminal / LaunchAgent)</td>
               <td>Dock Application + Full Web UI</td>
               <td>System Tray + Settings</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- Legacy mac2mqtt Comparison -->
-  <section id="mac2mqtt-comparison">
-    <div class="container">
-      <h2>StateBeacon vs. Legacy mac2mqtt</h2>
-      <p class="section-desc">Comparison with previous Go-based command-line daemons (bessarabov and ironcrafter54).</p>
-
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Dimension</th>
-              <th class="highlight-col">StateBeacon</th>
-              <th>Legacy mac2mqtt (Go)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>User Interface</strong></td>
-              <td class="highlight-col">Native macOS Menu Bar extra + Preferences GUI</td>
-              <td>None (Headless terminal daemon)</td>
-            </tr>
-            <tr>
-              <td><strong>Dependencies</strong></td>
-              <td class="highlight-col">Zero external dependencies (Pure Swift + Darwin APIs)</td>
-              <td>Requires Go runtime, Node.js packages, BetterDisplay CLI</td>
-            </tr>
-            <tr>
-              <td><strong>Installation</strong></td>
-              <td class="highlight-col">Drag-and-drop signed DMG installer</td>
-              <td>Terminal compilation, shell scripts, manual LaunchAgent plists</td>
-            </tr>
-            <tr>
-              <td><strong>Sensor Depth</strong></td>
-              <td class="highlight-col">25 sensors, controls, and system telemetry entities</td>
-              <td>4 to 7 basic sensors</td>
-            </tr>
-            <tr>
-              <td><strong>Hardware Privacy</strong></td>
-              <td class="highlight-col">CoreAudio and CoreMediaIO hardware listeners (Mic/Camera)</td>
-              <td>Not supported</td>
-            </tr>
-            <tr>
-              <td><strong>Focus Mode Latency</strong></td>
-              <td class="highlight-col">&lt; 50 ms (Kernel vnode file descriptor watcher)</td>
-              <td>Not supported</td>
-            </tr>
-            <tr>
-              <td><strong>Permission Handling</strong></td>
-              <td class="highlight-col">Full macOS TCC status detection with auto-activation</td>
-              <td>None (Silent failures on blocked permissions)</td>
-            </tr>
-            <tr>
-              <td><strong>Entity Pruning</strong></td>
-              <td class="highlight-col">Automatically removes disabled entities from HA registry</td>
-              <td>None (Orphaned entities persist in Home Assistant)</td>
-            </tr>
-            <tr>
-              <td><strong>Memory Footprint</strong></td>
-              <td class="highlight-col">Stable 25 MB to 45 MB with zero leaks</td>
-              <td>Documented memory leaks under sustained uptime</td>
             </tr>
           </tbody>
         </table>

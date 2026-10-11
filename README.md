@@ -24,33 +24,21 @@ Built in pure Swift with AppKit and Darwin APIs, StateBeacon runs as an accessor
 
 ## Comparison
 
-| Feature / Metric | StateBeacon (macOS) | Official HA Companion (macOS) | HASS.Agent 2 (Windows) |
-| :--- | :--- | :--- | :--- |
-| **Platform** | macOS 13+ (Ventura, Sonoma, Sequoia) | macOS 11+ (Intel / Apple Silicon) | Windows 10 & 11 (x64 / ARM64) |
-| **Tech Stack** | Native Swift (AppKit + Darwin) | Mac Catalyst (iOS UIKit + WebKit) | .NET 8 / C# (WPF + Win32) |
-| **Installer Size** | < 1 MB DMG | 120 MB - 180 MB | 60 MB - 95 MB (.msi) |
-| **Memory (RAM)** | 25 MB - 45 MB | 250 MB - 650 MB (WebKit processes) | 75 MB - 140 MB |
-| **Primary Protocol** | Direct MQTT socket (TCP/TLS) | HTTP Webhooks API | MQTT Discovery + Local REST |
-| **Focus Mode Latency** | < 50 ms (Kernel vnode) | 30s - 120s (Polling) | Windows Focus Assist API |
-| **UI Mode** | Menu bar daemon (No dock icon) | Application (Dock icon) | System tray icon |
-| **Device Names** | Hardware endpoint names | Not supported | Exact endpoint names |
-| **Entity Pruning** | Yes (Removed from registry) | No (Static discovery) | Configurable |
-
-### Comparison with Legacy mac2mqtt
-
-Prior open-source tools named `mac2mqtt` (such as the original Go CLI by `bessarabov` and its fork by `ironcrafter54`) introduced basic MQTT publishing for macOS. StateBeacon was engineered in native Swift to address their fundamental architectural and operational limitations:
-
-| Dimension | StateBeacon | Legacy mac2mqtt (Go) |
-| :--- | :--- | :--- |
-| **User Interface** | Native macOS Menu Bar extra + 3-tab Preferences GUI | None (Headless terminal daemon) |
-| **Runtime & Dependencies** | Pure Swift (Darwin, AppKit, IOKit); zero external dependencies | Go binary; requires npm (`media-control`), BetterDisplay CLI |
-| **Installation** | Drag-and-drop signed DMG installer | Terminal compilation, shell scripts, manual `launchd` plist |
-| **Sensor Depth** | 25 hardware, privacy, system, and network entities | 4 to 7 basic sensors (volume, battery, active status) |
-| **Hardware Privacy** | CoreAudio and CoreMediaIO hardware listeners (Mic/Camera hot detection) | Not supported |
-| **Focus Mode Latency** | < 50 ms (Kernel vnode watcher on `Assertions.json`) | Not supported |
-| **Permissions (TCC)** | Native permission checking with automatic in-UI sensor greying | None (Silent failures if permissions denied) |
-| **Entity Pruning** | Cleans Home Assistant registry on sensor toggle | None (Orphaned entities remain in Home Assistant) |
-| **Memory Footprint** | Stable 25 MB to 45 MB with zero leaks | Documented memory leaks in background daemon |
+| Feature / Metric | StateBeacon (macOS) | Legacy mac2mqtt (Go) | Official HA Companion (macOS) | HASS.Agent 2 (Windows) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Platform** | macOS 13+ (Ventura, Sonoma, Sequoia) | macOS (Intel / Apple Silicon) | macOS 11+ (Intel / Apple Silicon) | Windows 10 & 11 (x64 / ARM64) |
+| **Tech Stack** | Native Swift (AppKit + Darwin) | Go (Headless CLI daemon) | Mac Catalyst (iOS UIKit + WebKit) | .NET 8 / C# (WPF + Win32) |
+| **UI Mode** | Menu bar daemon (No dock icon) | None (Terminal / LaunchAgent) | Application (Dock icon) | System tray icon |
+| **Installer Size** | < 1 MB DMG | Source / manual binary | 120 MB - 180 MB | 60 MB - 95 MB (.msi) |
+| **Memory (RAM)** | 25 MB - 45 MB | Unbounded (Known memory leaks) | 250 MB - 650 MB (WebKit processes) | 75 MB - 140 MB |
+| **Dependencies** | Zero (Pure native APIs) | Requires npm, BetterDisplay CLI | Zero | Zero |
+| **Primary Protocol** | Direct MQTT socket (TCP/TLS) | MQTT socket (YAML config) | HTTP Webhooks API | MQTT Discovery + Local REST |
+| **Sensor Depth** | 25 hardware & privacy entities | 4 to 7 basic sensors | Fixed mobile sensors | 30+ sensors & controls |
+| **Hardware Privacy** | CoreAudio / CoreMediaIO listeners | Not supported | AVFoundation polling | Windows Privacy Registry |
+| **Focus Mode Latency** | < 50 ms (Kernel vnode) | Not supported | 30s - 120s (Polling) | Windows Focus Assist API |
+| **Frontmost App** | Immediate (NSWorkspace event) | Not supported | Delayed polling | Immediate hook |
+| **Permissions (TCC)** | Status checks + auto-activation | None (Silent failures) | System prompt | Windows UAC |
+| **Entity Pruning** | Yes (Removed from registry) | No (Orphaned entities) | No (Static discovery) | Configurable |
 
 ---
 
