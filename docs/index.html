@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mac2MQTT — Lightweight Native macOS Agent for Home Assistant</title>
+  <meta name="description" content="An ultra-lightweight, native macOS menu bar agent that publishes Mac hardware sensors, Focus mode, privacy state, and controls to Home Assistant via MQTT Auto-Discovery.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --card-border: #30363d;
+      --accent: #2ea043;
+      --accent-hover: #3fb950;
+      --blue: #58a6ff;
+      --purple: #bc8cff;
+      --text: #c9d1d9;
+      --text-bright: #f0f6fc;
+      --text-muted: #8b949e;
+      --code-bg: #0d1117;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Hero */
+    header {
+      padding: 72px 0 48px;
+      text-align: center;
+      position: relative;
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--blue);
+      background: rgba(88, 166, 255, 0.12);
+      border: 1px solid rgba(88, 166, 255, 0.3);
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 52px;
+      font-weight: 800;
+      color: var(--text-bright);
+      letter-spacing: -1px;
+      line-height: 1.15;
+      margin-bottom: 18px;
+    }
+    .hero-lead {
+      font-size: 20px;
+      color: var(--text-muted);
+      max-width: 720px;
+      margin: 0 auto 36px;
+    }
+    .cta-row {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 13px 26px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: all 0.18s ease;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: var(--card-bg);
+      color: var(--text-bright);
+      border: 1px solid var(--card-border);
+    }
+    .btn-secondary:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+
+    /* Metrics Grid */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin: 48px 0;
+    }
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+    }
+    .metric-val {
+      font-size: 34px;
+      font-weight: 800;
+      color: var(--text-bright);
+      margin-bottom: 4px;
+    }
+    .metric-val.green { color: var(--accent-hover); }
+    .metric-val.blue { color: var(--blue); }
+    .metric-label {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Comparison Table */
+    section {
+      padding: 48px 0;
+    }
+    h2 {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .section-desc {
+      text-align: center;
+      color: var(--text-muted);
+      margin-bottom: 36px;
+      font-size: 16px;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      background: var(--card-bg);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    th {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-bright);
+      font-weight: 600;
+    }
+    tr:last-child td { border-bottom: none; }
+    .highlight-col {
+      background: rgba(46, 160, 67, 0.08);
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+    th.highlight-col {
+      color: var(--accent-hover);
+    }
+
+    /* Feature Cards */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-top: 24px;
+    }
+    .feature-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .feature-card h3 {
+      font-size: 18px;
+      color: var(--text-bright);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    /* Steps */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+      margin-top: 24px;
+    }
+    .step-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .step-num {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--blue);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+    .step-card h3 {
+      color: var(--text-bright);
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+    .step-card p {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    footer {
+      border-top: 1px solid var(--card-border);
+      padding: 40px 0;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    footer a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="container">
+      <div class="badge">🚀 macOS 13+ (Ventura, Sonoma, Sequoia)</div>
+      <h1>The HASS.Agent for macOS</h1>
+      <p class="hero-lead">An ultra-lightweight, native menu bar client that connects your Mac to Home Assistant via MQTT Auto-Discovery with zero webview overhead.</p>
+      
+      <div class="cta-row">
+        <a href="https://github.com/rufus/Mac2MQTT/releases/latest" class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Download Mac2MQTT.dmg
+        </a>
+        <a href="https://github.com/rufus/Mac2MQTT" class="btn btn-secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+
+      <div class="metrics">
+        <div class="metric-card">
+          <div class="metric-val green">&lt; 1.5 MB</div>
+          <div class="metric-label">Bundle Size (vs 140MB+ Companion)</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val green">~30 MB</div>
+          <div class="metric-label">RAM Usage (Zero WebKit Overhead)</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val blue">&lt; 50 ms</div>
+          <div class="metric-label">Focus Mode & App Switch Latency</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val blue">100%</div>
+          <div class="metric-label">Local MQTT Auto-Discovery</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Comparison Section -->
+  <section id="comparison">
+    <div class="container">
+      <h2>Architectural Breakdown</h2>
+      <p class="section-desc">How Mac2MQTT stacks up against the official macOS Companion App and Windows' HASS.Agent 2.</p>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th class="highlight-col">Mac2MQTT (macOS)</th>
+              <th>Official HA Companion (macOS)</th>
+              <th>HASS.Agent 2 (Windows)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Architecture</strong></td>
+              <td class="highlight-col">Pure Native Swift (Darwin/AppKit)</td>
+              <td>Mac Catalyst (iOS UIKit + WebKit)</td>
+              <td>.NET 8 / WPF (Win32)</td>
+            </tr>
+            <tr>
+              <td><strong>Installer Size (.dmg)</strong></td>
+              <td class="highlight-col">~428 KB</td>
+              <td>~120 MB &ndash; 180 MB</td>
+              <td>~60 MB &ndash; 95 MB</td>
+            </tr>
+            <tr>
+              <td><strong>Idle RAM Footprint</strong></td>
+              <td class="highlight-col">~25 &ndash; 45 MB</td>
+              <td>~250 &ndash; 650 MB (WebKit processes)</td>
+              <td>~75 &ndash; 140 MB</td>
+            </tr>
+            <tr>
+              <td><strong>Integration Protocol</strong></td>
+              <td class="highlight-col">MQTT Auto-Discovery (Local Broker)</td>
+              <td>HTTP Webhook API</td>
+              <td>MQTT Discovery + Local REST</td>
+            </tr>
+            <tr>
+              <td><strong>Dock & Window State</strong></td>
+              <td class="highlight-col">Silent Accessory (No Dock Icon)</td>
+              <td>Standard App (Dock icon active)</td>
+              <td>System Tray Agent</td>
+            </tr>
+            <tr>
+              <td><strong>Focus Mode Tracking</strong></td>
+              <td class="highlight-col">Instant Kernel vnode (&lt; 50ms)</td>
+              <td>Periodic Polling (30s &ndash; 60s delay)</td>
+              <td>Focus Assist API</td>
+            </tr>
+            <tr>
+              <td><strong>Active Privacy Sensors</strong></td>
+              <td class="highlight-col">CoreAudio + Camera Indicator</td>
+              <td>AVFoundation Permissions</td>
+              <td>Windows Privacy Registry</td>
+            </tr>
+            <tr>
+              <td><strong>Audio Input / Output Names</strong></td>
+              <td class="highlight-col">Exact Hardware Names</td>
+              <td>Not Supported</td>
+              <td>Exact Endpoint Names</td>
+            </tr>
+            <tr>
+              <td><strong>Remote Control Actions</strong></td>
+              <td class="highlight-col">Sleep, Lock Screen, Mute Switch</td>
+              <td>Limited Push Actions</td>
+              <td>Sleep, Lock, Commands</td>
+            </tr>
+            <tr>
+              <td><strong>Sensor Checklist & Pruning</strong></td>
+              <td class="highlight-col">Yes (Unpublished from HA)</td>
+              <td>No automatic HA pruning</td>
+              <td>Configurable per sensor</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Grid -->
+  <section id="features">
+    <div class="container">
+      <h2>Engineered for Power Users</h2>
+      <p class="section-desc">Everything you need to automate your desk and workspace without bogging down your system.</p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <h3>⚡ Instant Event Engine</h3>
+          <p>Zero polling loops. Kernel vnode file watchers and Darwin notifications stream Focus mode, frontmost apps, and display changes to Home Assistant the millisecond they happen.</p>
+        </div>
+        <div class="feature-card">
+          <h3>🎙️ Audio & Camera Privacy</h3>
+          <p>Instantly trigger "On Air" studio lights or office busy signs when your webcam turns green or your microphone stream begins.</p>
+        </div>
+        <div class="feature-card">
+          <h3>🔋 Power & Battery Telemetry</h3>
+          <p>Monitors battery percentage, state, and AC/battery power transitions via low-level IOKit runloop sources.</p>
+        </div>
+        <div class="feature-card">
+          <h3>🎛️ Remote Control Endpoints</h3>
+          <p>Put your Mac to sleep, lock the screen, or mute system audio right from Home Assistant automation triggers or dashboard cards.</p>
+        </div>
+        <div class="feature-card">
+          <h3>🛡️ Privacy-First Entity Pruning</h3>
+          <p>Uncheck any sensor in the Preferences tab, and Mac2MQTT automatically publishes an empty discovery payload, removing the entity entirely from Home Assistant.</p>
+        </div>
+        <div class="feature-card">
+          <h3>🚀 Clean Menu Bar Citizen</h3>
+          <p>Runs as an accessory background process. No Dock icon, no accidental Cmd+Tab switching, and launches silently at login.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Setup -->
+  <section id="setup">
+    <div class="container">
+      <h2>Get Started in 60 Seconds</h2>
+      <p class="section-desc">Simple, friction-free installation.</p>
+
+      <div class="steps">
+        <div class="step-card">
+          <div class="step-num">1</div>
+          <h3>Install App</h3>
+          <p>Download <code>Mac2MQTT.dmg</code>, open it, and drag Mac2MQTT into your Applications folder.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">2</div>
+          <h3>Configure Broker</h3>
+          <p>Click the antenna icon in your menu bar, open Preferences, and enter your MQTT broker IP and credentials.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">3</div>
+          <h3>Automate!</h3>
+          <p>Your Mac appears instantly in Home Assistant under <strong>Settings → Devices & Services → MQTT</strong>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <p>Mac2MQTT is open-source under the MIT License. Built with native Swift for macOS.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

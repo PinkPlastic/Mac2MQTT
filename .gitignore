@@ -1,0 +1,11 @@
+.DS_Store
+/.build/
+/Packages/
+xcuserdata/
+DerivedData/
+.swiftpm/
+Mac2MQTT.app/
+*.dmg
+config.json
+scratch/
+.*_staging/
