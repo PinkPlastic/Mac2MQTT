@@ -62,6 +62,7 @@ public final class MenuBarController: NSObject {
         setupMQTT()
         setupEventSystem()
         startSensorLoop()
+        publishSensorState(trigger: "Startup")
 
         // Check if onboarding or permissions need to be completed on startup
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
@@ -525,34 +526,128 @@ public final class MenuBarController: NSObject {
         let snapshot = sensorManager.collectSnapshot(trigger: trigger)
         lastSnapshot = snapshot
 
-        // Update Live Sensors UI & text
-        appMenuItem.title = "  App: \(snapshot.frontmostApp)"
-        micMenuItem.title = "  Mic: \(snapshot.isMicInUse ? "🎙️ In Use" : "Inactive")"
-        camMenuItem.title = "  Camera: \(snapshot.isCameraInUse ? "📷 In Use" : "Inactive")"
-        audioMenuItem.title = "  Audio: \(snapshot.activeAudioOutput)\(snapshot.isAudioOutputInUse ? " (Playing)" : "")"
-        battMenuItem.title = "  Battery: \(snapshot.batteryLevel)% (\(snapshot.batteryState) - \(snapshot.powerSource))"
-        wifiMenuItem.title = "  Wi-Fi: \(snapshot.wifiSSID)"
-        focusMenuItem.title = "  Focus Mode: \(snapshot.focusMode)"
-        statsMenuItem.title = "  CPU: \(Int(snapshot.cpuUsagePercent))% | RAM: \(Int(snapshot.memoryUsagePercent))%"
-
-        // Hide disabled sensors from the menubar menu
-        let showApp = config.isSensorEnabled("frontmost_app")
-        let showMic = config.isSensorEnabled("audio_input_in_use")
-        let showCam = config.isSensorEnabled("camera_in_use")
-        let showAudio = config.isSensorEnabled("audio_output_in_use") || config.isSensorEnabled("active_audio_output")
-        let showBatt = config.isSensorEnabled("internal_battery_level") || config.isSensorEnabled("power_source")
-        let showWifi = config.isSensorEnabled("wifi_ssid")
-        let showFocus = config.isSensorEnabled("focus") || config.isSensorEnabled("focus_mode")
-        let showStats = config.isSensorEnabled("cpu_usage") || config.isSensorEnabled("memory_usage")
-
-        appMenuItem.isHidden = !showApp
-        micMenuItem.isHidden = !showMic
-        camMenuItem.isHidden = !showCam
-        audioMenuItem.isHidden = !showAudio
-        battMenuItem.isHidden = !showBatt
-        wifiMenuItem.isHidden = !showWifi
-        focusMenuItem.isHidden = !showFocus
+        // 1. CPU & Memory
+        let showCpu = config.isSensorEnabled("cpu_usage")
+        let showRam = config.isSensorEnabled("memory_usage")
+        let showStats = showCpu || showRam
+        if showCpu && showRam {
+            statsMenuItem.title = "  CPU: \(Int(snapshot.cpuUsagePercent))% | RAM: \(Int(snapshot.memoryUsagePercent))%"
+        } else if showCpu {
+            statsMenuItem.title = "  CPU: \(Int(snapshot.cpuUsagePercent))%"
+        } else if showRam {
+            statsMenuItem.title = "  RAM: \(Int(snapshot.memoryUsagePercent))%"
+        }
         statsMenuItem.isHidden = !showStats
+
+        // 2. Frontmost Application
+        let showApp = config.isSensorEnabled("frontmost_app")
+        appMenuItem.title = "  App: \(snapshot.frontmostApp)"
+        appMenuItem.isHidden = !showApp
+
+        // 3. Microphone (In-Use and/or Active Mic Name)
+        let showMicInUse = config.isSensorEnabled("audio_input_in_use")
+        let showMicName = config.isSensorEnabled("active_audio_input")
+        let showMic = showMicInUse || showMicName
+        if showMicName && showMicInUse {
+            micMenuItem.title = "  Mic: \(snapshot.activeAudioInput)\(snapshot.isMicInUse ? " (🎙️ In Use)" : "")"
+        } else if showMicName {
+            micMenuItem.title = "  Mic: \(snapshot.activeAudioInput)"
+        } else if showMicInUse {
+            micMenuItem.title = "  Mic: \(snapshot.isMicInUse ? "🎙️ In Use" : "Inactive")"
+        }
+        micMenuItem.isHidden = !showMic
+
+        // 4. Camera (In-Use and/or Active Camera Name)
+        let showCamInUse = config.isSensorEnabled("camera_in_use")
+        let showCamName = config.isSensorEnabled("active_camera")
+        let showCam = showCamInUse || showCamName
+        if showCamName && showCamInUse {
+            camMenuItem.title = "  Camera: \(snapshot.activeCamera)\(snapshot.isCameraInUse ? " (📷 In Use)" : "")"
+        } else if showCamName {
+            camMenuItem.title = "  Camera: \(snapshot.activeCamera)"
+        } else if showCamInUse {
+            camMenuItem.title = "  Camera: \(snapshot.isCameraInUse ? "📷 In Use" : "Inactive")"
+        }
+        camMenuItem.isHidden = !showCam
+
+        // 5. Audio Output (In-Use and/or Active Output Name)
+        let showAudioInUse = config.isSensorEnabled("audio_output_in_use")
+        let showAudioName = config.isSensorEnabled("active_audio_output")
+        let showAudio = showAudioInUse || showAudioName
+        if showAudioName && showAudioInUse {
+            audioMenuItem.title = "  Audio: \(snapshot.activeAudioOutput)\(snapshot.isAudioOutputInUse ? " (Playing)" : "")"
+        } else if showAudioName {
+            audioMenuItem.title = "  Audio: \(snapshot.activeAudioOutput)"
+        } else if showAudioInUse {
+            audioMenuItem.title = "  Audio: \(snapshot.isAudioOutputInUse ? "Playing" : "Inactive")"
+        }
+        audioMenuItem.isHidden = !showAudio
+
+        // 6. Battery & Power
+        let showBattLevel = config.isSensorEnabled("internal_battery_level")
+        let showBattCharging = config.isSensorEnabled("internal_battery_charging")
+        let showBattState = config.isSensorEnabled("internal_battery_state")
+        let showPowerSource = config.isSensorEnabled("power_source")
+        let showBatt = showBattLevel || showBattCharging || showBattState || showPowerSource
+        if showBatt {
+            var details: [String] = []
+            if showBattState {
+                details.append(snapshot.batteryState)
+            } else if showBattCharging {
+                details.append(snapshot.isCharging ? "Charging" : "Not Charging")
+            }
+            if showPowerSource {
+                details.append(snapshot.powerSource)
+            }
+
+            if showBattLevel {
+                if details.isEmpty {
+                    battMenuItem.title = "  Battery: \(snapshot.batteryLevel)%"
+                } else {
+                    battMenuItem.title = "  Battery: \(snapshot.batteryLevel)% (\(details.joined(separator: " - ")))"
+                }
+            } else {
+                if !details.isEmpty {
+                    if !showBattState && !showBattCharging && showPowerSource {
+                        battMenuItem.title = "  Power Source: \(snapshot.powerSource)"
+                    } else {
+                        battMenuItem.title = "  Battery: " + details.joined(separator: " - ")
+                    }
+                }
+            }
+        }
+        battMenuItem.isHidden = !showBatt
+
+        // 7. Network / Wi-Fi
+        let showWifiSsid = config.isSensorEnabled("wifi_ssid")
+        let showWifiBssid = config.isSensorEnabled("bssid")
+        let showConnType = config.isSensorEnabled("connection_type")
+        let showWifi = showWifiSsid || showWifiBssid || showConnType
+        if showWifi {
+            if showWifiSsid && showWifiBssid {
+                wifiMenuItem.title = "  Wi-Fi: \(snapshot.wifiSSID) (\(snapshot.wifiBSSID))"
+            } else if showWifiSsid {
+                wifiMenuItem.title = "  Wi-Fi: \(snapshot.wifiSSID)"
+            } else if showWifiBssid {
+                wifiMenuItem.title = "  Wi-Fi BSSID: \(snapshot.wifiBSSID)"
+            } else if showConnType {
+                wifiMenuItem.title = "  Network: \(snapshot.connectionType)"
+            }
+        }
+        wifiMenuItem.isHidden = !showWifi
+
+        // 8. Focus Mode
+        let showFocusActive = config.isSensorEnabled("focus")
+        let showFocusName = config.isSensorEnabled("focus_mode")
+        let showFocus = showFocusActive || showFocusName
+        if showFocus {
+            if showFocusName {
+                focusMenuItem.title = "  Focus Mode: \(snapshot.focusMode)"
+            } else if showFocusActive {
+                focusMenuItem.title = "  Focus: \(snapshot.isFocusActive ? "Active" : "Off")"
+            }
+        }
+        focusMenuItem.isHidden = !showFocus
 
         let hasAnyLive = showApp || showMic || showCam || showAudio || showBatt || showWifi || showFocus || showStats
         liveHeader.isHidden = !hasAnyLive

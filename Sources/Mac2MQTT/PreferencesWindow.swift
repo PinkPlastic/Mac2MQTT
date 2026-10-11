@@ -418,6 +418,7 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
 
     @objc private func sensorCheckboxToggled() {
         updateSensorSummary()
+        applySensorChanges()
     }
 
     @objc private func selectAllSensors() {
@@ -425,6 +426,7 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
             cb.state = .on
         }
         updateSensorSummary()
+        applySensorChanges()
     }
 
     @objc private func deselectAllSensors() {
@@ -432,6 +434,19 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
             cb.state = .off
         }
         updateSensorSummary()
+        applySensorChanges()
+    }
+
+    private func applySensorChanges() {
+        var disabled: [String] = []
+        for (id, cb) in sensorCheckboxes {
+            if cb.state == .off {
+                disabled.append(id)
+            }
+        }
+        config.disabledSensors = disabled
+        config.save()
+        onSave(config)
     }
 
     // MARK: - Tab 3: Permissions
@@ -660,33 +675,42 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
     }
 
     private func saveAndApply() {
-        guard hostField != nil else { return }
+        var changed = false
 
-        config.mqttHost = hostField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let port = UInt16(portField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)), port > 0 {
-            config.mqttPort = port
-        }
-        config.useTLS = (tlsCheckbox.state == .on)
-        config.mqttUsername = usernameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        config.mqttPassword = passwordField.stringValue
-        config.deviceName = deviceNameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        config.deviceId = deviceIdField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let interval = Double(intervalField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)), interval >= 1.0 {
-            config.updateInterval = interval
+        if hostField != nil {
+            config.mqttHost = hostField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let port = UInt16(portField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)), port > 0 {
+                config.mqttPort = port
+            }
+            config.useTLS = (tlsCheckbox.state == .on)
+            config.mqttUsername = usernameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            config.mqttPassword = passwordField.stringValue
+            config.deviceName = deviceNameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            config.deviceId = deviceIdField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let interval = Double(intervalField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)), interval >= 1.0 {
+                config.updateInterval = interval
+            }
+            changed = true
         }
 
         // Save sensor checklist
-        var disabled: [String] = []
-        for (id, cb) in sensorCheckboxes {
-            if cb.state == .off {
-                disabled.append(id)
+        if !sensorCheckboxes.isEmpty {
+            var disabled: [String] = []
+            for (id, cb) in sensorCheckboxes {
+                if cb.state == .off {
+                    disabled.append(id)
+                }
             }
+            config.disabledSensors = disabled
+            changed = true
         }
-        config.disabledSensors = disabled
+
         config.hasCompletedOnboarding = true
 
-        config.save()
-        onSave(config)
+        if changed {
+            config.save()
+            onSave(config)
+        }
     }
 
     public func windowWillClose(_ notification: Notification) {
