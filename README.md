@@ -101,7 +101,7 @@ All entities are automatically registered under a single consolidated Device in 
 ## 🛠️ Installation & Setup
 
 ### 1. Download & Install
-Download the latest `Mac2MQTT.dmg` from [Releases](https://github.com/rufus/Mac2MQTT/releases), open the DMG, and drag **Mac2MQTT** into your **Applications** folder.
+Download the latest `Mac2MQTT.dmg` from [Releases](https://github.com/PinkPlastic/Mac2MQTT/releases), open the DMG, and drag **Mac2MQTT** into your **Applications** folder.
 
 ### 2. Permissions (One-Time Setup)
 Upon first launch, open **Preferences → Permissions**:
@@ -124,7 +124,7 @@ Requirements: macOS 13+, Xcode 15+ (or Command Line Tools), Swift 5.9+.
 
 ```bash
 # Clone the repository
-git clone https://github.com/rufus/Mac2MQTT.git
+git clone https://github.com/PinkPlastic/Mac2MQTT.git
 cd Mac2MQTT
 
 # Build and package the application bundle
