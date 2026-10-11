@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mac2MQTT — Live Sensor Reporting for macOS</title>
-  <meta name="description" content="An ultra-lightweight, native macOS menu bar agent that publishes Mac hardware sensors, Focus mode, privacy state, and controls to Home Assistant via MQTT Auto-Discovery.">
+  <title>Mac2MQTT: Live Sensor Reporting for macOS</title>
+  <meta name="description" content="Native macOS menu bar agent that sends system telemetry, Focus mode state, and controls to Home Assistant via MQTT.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -56,7 +56,7 @@
       margin-bottom: 20px;
     }
     h1 {
-      font-size: 52px;
+      font-size: 48px;
       font-weight: 800;
       color: var(--text-bright);
       letter-spacing: -1px;
@@ -64,7 +64,7 @@
       margin-bottom: 18px;
     }
     .hero-lead {
-      font-size: 20px;
+      font-size: 19px;
       color: var(--text-muted);
       max-width: 720px;
       margin: 0 auto 36px;
@@ -137,7 +137,7 @@
       padding: 48px 0;
     }
     h2 {
-      font-size: 32px;
+      font-size: 30px;
       font-weight: 700;
       color: var(--text-bright);
       margin-bottom: 12px;
@@ -147,7 +147,7 @@
       text-align: center;
       color: var(--text-muted);
       margin-bottom: 36px;
-      font-size: 16px;
+      font-size: 15px;
     }
 
     .table-container {
@@ -202,12 +202,9 @@
       word-break: break-word;
     }
     .feature-card h3 {
-      font-size: 18px;
+      font-size: 17px;
       color: var(--text-bright);
       margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
     }
     .feature-card p {
       font-size: 14px;
@@ -233,29 +230,40 @@
       border: 1px solid var(--card-border);
       border-radius: 12px;
       padding: 24px;
+      position: relative;
     }
     .step-num {
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       border-radius: 50%;
       background: rgba(88, 166, 255, 0.15);
       color: var(--blue);
-      font-weight: 700;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
       margin-bottom: 14px;
     }
     .step-card h3 {
+      font-size: 17px;
       color: var(--text-bright);
-      font-size: 16px;
       margin-bottom: 8px;
     }
     .step-card p {
+      font-size: 14px;
       color: var(--text-muted);
+    }
+    .step-card code {
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 13px;
+      border: 1px solid var(--card-border);
     }
 
+    /* Footer */
     footer {
       border-top: 1px solid var(--card-border);
       padding: 40px 0;
@@ -273,9 +281,9 @@
 
   <header>
     <div class="container">
-      <div class="badge"> Optimized for macOS Golden Gate (Latest) · Supports macOS 13+</div>
+      <div class="badge">macOS Golden Gate (macOS 13+)</div>
       <h1>Live Sensor Reporting for macOS</h1>
-      <p class="hero-lead">An ultra-lightweight, native menu bar client that connects your Mac to Home Assistant via MQTT Auto-Discovery with zero webview overhead.</p>
+      <p class="hero-lead">Native menu bar client that connects your Mac to Home Assistant via MQTT auto-discovery without WebKit or background web views.</p>
       
       <div class="cta-row">
         <a href="https://github.com/PinkPlastic/Mac2MQTT/releases/latest" class="btn btn-primary" target="_blank" rel="noopener">
@@ -299,7 +307,7 @@
         </div>
         <div class="metric-card">
           <div class="metric-val blue">&lt; 50 ms</div>
-          <div class="metric-label">Focus Mode & App Switch Latency</div>
+          <div class="metric-label">Focus Mode and App Switch Latency</div>
         </div>
         <div class="metric-card">
           <div class="metric-val blue">100%</div>
@@ -313,7 +321,7 @@
   <section id="comparison">
     <div class="container">
       <h2>Architectural Breakdown</h2>
-      <p class="section-desc">How Mac2MQTT stacks up against the official macOS Companion App and Windows' HASS.Agent 2.</p>
+      <p class="section-desc">Comparison with the official macOS Companion App and Windows HASS.Agent.</p>
 
       <div class="table-container">
         <table>
@@ -328,63 +336,63 @@
           <tbody>
             <tr>
               <td><strong>Architecture</strong></td>
-              <td class="highlight-col">Pure Native Swift (Darwin/AppKit)</td>
+              <td class="highlight-col">Native Swift (Darwin and AppKit)</td>
               <td>Mac Catalyst (iOS UIKit + WebKit)</td>
               <td>.NET 8 / WPF (Win32)</td>
             </tr>
             <tr>
-              <td><strong>Installer Size (.dmg)</strong></td>
-              <td class="highlight-col">~428 KB</td>
-              <td>~120 MB &ndash; 180 MB</td>
-              <td>~60 MB &ndash; 95 MB</td>
+              <td><strong>Protocol</strong></td>
+              <td class="highlight-col">Direct MQTT socket (TCP/TLS)</td>
+              <td>HTTP Webhooks API</td>
+              <td>MQTT socket + local REST API</td>
             </tr>
             <tr>
-              <td><strong>Idle RAM Footprint</strong></td>
-              <td class="highlight-col">~25 &ndash; 45 MB</td>
-              <td>~250 &ndash; 650 MB (WebKit processes)</td>
-              <td>~75 &ndash; 140 MB</td>
+              <td><strong>HA Setup</strong></td>
+              <td class="highlight-col">Instant MQTT Auto-Discovery</td>
+              <td>Manual Webhook Integration</td>
+              <td>MQTT Auto-Discovery</td>
             </tr>
             <tr>
-              <td><strong>Integration Protocol</strong></td>
-              <td class="highlight-col">MQTT Auto-Discovery (Local Broker)</td>
-              <td>HTTP Webhook API</td>
-              <td>MQTT Discovery + Local REST</td>
+              <td><strong>Idle RAM</strong></td>
+              <td class="highlight-col">25 MB - 45 MB</td>
+              <td>250 MB - 650 MB</td>
+              <td>75 MB - 140 MB</td>
             </tr>
             <tr>
-              <td><strong>Dock & Window State</strong></td>
-              <td class="highlight-col">Silent Accessory (No Dock Icon)</td>
-              <td>Standard App (Dock icon active)</td>
-              <td>System Tray Agent</td>
+              <td><strong>CPU Usage (Idle)</strong></td>
+              <td class="highlight-col">&lt; 0.1% (Event-driven)</td>
+              <td>1% - 3% (Periodic pollers)</td>
+              <td>0.5% - 1.5%</td>
             </tr>
             <tr>
-              <td><strong>Focus Mode Tracking</strong></td>
-              <td class="highlight-col">Instant Kernel vnode (&lt; 50ms)</td>
-              <td>Periodic Polling (30s &ndash; 60s delay)</td>
-              <td>Focus Assist API</td>
+              <td><strong>Installer Size</strong></td>
+              <td class="highlight-col">&lt; 1 MB DMG</td>
+              <td>120 MB - 180 MB</td>
+              <td>60 MB - 95 MB (.msi)</td>
             </tr>
             <tr>
-              <td><strong>Active Privacy Sensors</strong></td>
-              <td class="highlight-col">CoreAudio + Camera Indicator</td>
-              <td>AVFoundation Permissions</td>
-              <td>Windows Privacy Registry</td>
+              <td><strong>Focus Mode Latency</strong></td>
+              <td class="highlight-col">&lt; 50 ms (Kernel vnode monitor)</td>
+              <td>30s - 120s (Polling)</td>
+              <td>Windows Focus Assist API</td>
             </tr>
             <tr>
-              <td><strong>Audio Input / Output Names</strong></td>
-              <td class="highlight-col">Exact Hardware Names</td>
-              <td>Not Supported</td>
-              <td>Exact Endpoint Names</td>
+              <td><strong>UI Presence</strong></td>
+              <td class="highlight-col">Accessory daemon (No dock icon)</td>
+              <td>Full application (Dock icon)</td>
+              <td>System tray icon</td>
             </tr>
             <tr>
-              <td><strong>Remote Control Actions</strong></td>
-              <td class="highlight-col">Sleep, Lock Screen, Mute Switch</td>
-              <td>Limited Push Actions</td>
-              <td>Sleep, Lock, Commands</td>
+              <td><strong>Camera &amp; Mic State</strong></td>
+              <td class="highlight-col">Hardware listener (CoreAudio/CoreMediaIO)</td>
+              <td>Limited</td>
+              <td>DirectShow / MediaFoundation</td>
             </tr>
             <tr>
-              <td><strong>Sensor Checklist & Pruning</strong></td>
-              <td class="highlight-col">Yes (Unpublished from HA)</td>
-              <td>No automatic HA pruning</td>
-              <td>Configurable per sensor</td>
+              <td><strong>Sensor Pruning</strong></td>
+              <td class="highlight-col">Auto-removes unchecked entities</td>
+              <td>Static (Unused sensors remain)</td>
+              <td>Configurable</td>
             </tr>
           </tbody>
         </table>
@@ -395,21 +403,21 @@
   <!-- Technical Architecture Deep Dive -->
   <section id="deep-dive" style="background: rgba(255, 255, 255, 0.01); border-top: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border);">
     <div class="container">
-      <h2>Technical Architecture Deep Dive</h2>
-      <p class="section-desc">Why pure native engineering matters for desktop automation.</p>
+      <h2>Technical Architecture</h2>
+      <p class="section-desc">Key architectural differences for local desktop automation.</p>
 
       <div class="features-grid">
         <div class="feature-card">
-          <h3>🏎️ Headless Swift vs. Catalyst &amp; WebKit</h3>
-          <p>The official Home Assistant companion app is an iOS port via Mac Catalyst, running an entire background WebKit browser engine with multiple helper processes consuming 250MB–650MB RAM and GPU compositor wakeups. <strong>Mac2MQTT</strong> has zero webview dependencies—written in pure native Swift with AppKit and Darwin, running as an ultra-lean ~30MB daemon.</p>
+          <h3>Native Swift vs. Catalyst WebKit</h3>
+          <p>The official Home Assistant companion app runs an iOS build via Mac Catalyst, keeping a WebKit browser engine and helper processes active in the background (using 250 MB to 650 MB of RAM). Mac2MQTT contains no web views. Written in native Swift with AppKit and Darwin APIs, it runs as an accessory daemon using roughly 30 MB of RAM.</p>
         </div>
         <div class="feature-card">
-          <h3>⚡ Push-Driven MQTT &amp; Auto-Discovery</h3>
-          <p>Unlike HTTP webhooks with cloud proxy delays, Mac2MQTT maintains a persistent local TCP/TLS socket to your MQTT broker with Last Will &amp; Testament (LWT) for instant sleep/wake detection. It follows standard Home Assistant Discovery conventions (<code>homeassistant/&lt;domain&gt;/...</code>), bringing full feature parity with Windows HASS.Agent for instant zero-YAML setup.</p>
+          <h3>Direct MQTT Socket vs. HTTP Webhooks</h3>
+          <p>Rather than routing periodic HTTP webhooks through cloud proxies, Mac2MQTT maintains a local TCP/TLS socket to your broker with Last Will and Testament (LWT) for instant offline detection. It follows standard Home Assistant Discovery format (<code>homeassistant/&lt;domain&gt;/...</code>), matching the entity conventions used by Windows HASS.Agent.</p>
         </div>
         <div class="feature-card">
-          <h3>🔔 Kernel vnode Watchers vs. Polling</h3>
-          <p>Instead of polling state on slow 30-second timers, Mac2MQTT uses kernel-level file descriptor monitors (<code>DispatchSourceFileSystemObject</code>) on macOS's <code>Assertions.json</code> database. When you toggle Focus or Do Not Disturb, Home Assistant receives the updated state in <strong>under 50 milliseconds</strong>.</p>
+          <h3>Kernel Event Watchers vs. Timer Polling</h3>
+          <p>Rather than polling on a timer, Mac2MQTT listens to kernel file descriptor events (via <code>DispatchSourceFileSystemObject</code>) on the macOS <code>Assertions.json</code> database. Focus mode and Do Not Disturb transitions reach Home Assistant in under 50 milliseconds.</p>
         </div>
       </div>
     </div>
@@ -418,8 +426,8 @@
   <!-- Complete Sensor Reference -->
   <section id="sensors">
     <div class="container">
-      <h2>Comprehensive Sensor & Control Matrix</h2>
-      <p class="section-desc">22 native sensors, switches, and remote control buttons published to Home Assistant.</p>
+      <h2>Sensor and Control Matrix</h2>
+      <p class="section-desc">25 native sensors, switches, and remote control buttons published to Home Assistant.</p>
 
       <div class="table-container">
         <table>
@@ -433,7 +441,7 @@
           </thead>
           <tbody>
             <tr>
-              <td rowspan="6"><strong>Privacy & Audio</strong></td>
+              <td rowspan="6"><strong>Privacy &amp; Audio</strong></td>
               <td>Microphone In-Use</td>
               <td><code>binary_sensor</code></td>
               <td>Active microphone stream detection via CoreAudio listener</td>
@@ -464,10 +472,10 @@
               <td>Connected output device (e.g., <em>AirPods Pro</em>, <em>Studio Display</em>)</td>
             </tr>
             <tr>
-              <td rowspan="6"><strong>System & Presence</strong></td>
+              <td rowspan="7"><strong>System &amp; Presence</strong></td>
               <td>Frontmost App</td>
               <td><code>sensor</code></td>
-              <td>Currently focused application (instant event updates)</td>
+              <td>Currently focused application (event-driven updates)</td>
             </tr>
             <tr>
               <td>User Active</td>
@@ -477,12 +485,12 @@
             <tr>
               <td>Idle Seconds</td>
               <td><code>sensor</code></td>
-              <td>Exact seconds since last user input via IOHID</td>
+              <td>Seconds since last user hardware input via IOHID</td>
             </tr>
             <tr>
               <td>CPU Usage (%)</td>
               <td><code>sensor</code></td>
-              <td>Overall CPU load percentage sampled via Mach kernel</td>
+              <td>Processor load percentage sampled via Mach kernel</td>
             </tr>
             <tr>
               <td>Memory Usage (%)</td>
@@ -495,7 +503,12 @@
               <td>Total connected internal and external displays</td>
             </tr>
             <tr>
-              <td rowspan="3"><strong>Network & Wi-Fi</strong></td>
+              <td>Primary Display ID</td>
+              <td><code>sensor</code></td>
+              <td>Identifier for the primary screen</td>
+            </tr>
+            <tr>
+              <td rowspan="3"><strong>Network &amp; Wi-Fi</strong></td>
               <td>Wi-Fi SSID</td>
               <td><code>sensor</code></td>
               <td>Connected Wi-Fi network name</td>
@@ -522,31 +535,41 @@
               <td>Active profile name (<em>Work</em>, <em>Personal</em>, <em>Sleep</em>, <em>Off</em>)</td>
             </tr>
             <tr>
-              <td rowspan="2"><strong>Power & Battery</strong></td>
+              <td rowspan="4"><strong>Power &amp; Battery</strong></td>
               <td>Battery Level (%)</td>
               <td><code>sensor</code></td>
               <td>Internal battery percentage via IOKit</td>
             </tr>
             <tr>
-              <td>Battery State & Power Source</td>
+              <td>Battery Charging</td>
+              <td><code>binary_sensor</code></td>
+              <td><code>true</code> when plugged in and charging</td>
+            </tr>
+            <tr>
+              <td>Battery State</td>
               <td><code>sensor</code></td>
-              <td>Charging state and source (<em>AC Power</em> vs <em>Battery</em>)</td>
+              <td>Charging, Discharging, or AC Power</td>
+            </tr>
+            <tr>
+              <td>Power Source</td>
+              <td><code>sensor</code></td>
+              <td>AC Power vs. Battery</td>
             </tr>
             <tr>
               <td rowspan="3"><strong>Remote Controls</strong></td>
               <td>Sleep Mac</td>
               <td><code>button</code></td>
-              <td>Trigger Mac to immediately sleep via Home Assistant</td>
+              <td>Triggers system sleep via <code>pmset sleepnow</code></td>
             </tr>
             <tr>
               <td>Lock Screen</td>
               <td><code>button</code></td>
-              <td>Immediately lock screen and sleep displays</td>
+              <td>Locks screen and sleeps displays</td>
             </tr>
             <tr>
               <td>Mute Audio</td>
               <td><code>switch</code></td>
-              <td>Toggle system output volume mute remotely</td>
+              <td>Toggles system output volume mute</td>
             </tr>
           </tbody>
         </table>
@@ -557,24 +580,24 @@
   <!-- Quick Setup -->
   <section id="setup">
     <div class="container">
-      <h2>Get Started in 60 Seconds</h2>
-      <p class="section-desc">Simple, friction-free installation.</p>
+      <h2>Installation</h2>
+      <p class="section-desc">Setup in three steps.</p>
 
       <div class="steps">
         <div class="step-card">
           <div class="step-num">1</div>
           <h3>Install App</h3>
-          <p>Download <code>Mac2MQTT.dmg</code>, open it, and drag Mac2MQTT into your Applications folder.</p>
+          <p>Download <code>Mac2MQTT.dmg</code>, open the disk image, and drag Mac2MQTT into your Applications folder.</p>
         </div>
         <div class="step-card">
           <div class="step-num">2</div>
           <h3>Configure Broker</h3>
-          <p>Click the antenna icon in your menu bar, open Preferences, and enter your MQTT broker IP and credentials.</p>
+          <p>Click the antenna icon in the menu bar, open Preferences, and enter your MQTT broker IP and credentials.</p>
         </div>
         <div class="step-card">
           <div class="step-num">3</div>
-          <h3>Automate!</h3>
-          <p>Your Mac appears instantly in Home Assistant under <strong>Settings → Devices & Services → MQTT</strong>.</p>
+          <h3>Automatic Discovery</h3>
+          <p>Your Mac appears in Home Assistant under <strong>Settings &rarr; Devices &amp; Services &rarr; MQTT</strong>.</p>
         </div>
       </div>
     </div>

@@ -33,9 +33,9 @@ shasum -a 256 "Mac2MQTT-v$VERSION.dmg" "Mac2MQTT.dmg" "Mac2MQTT-v$VERSION.zip" >
 
 # 6. Generate Release Notes
 cat << 'EOF' > "$DIST_DIR/RELEASE_NOTES.md"
-# Mac2MQTT v1.0.0 — Initial Release
+# Mac2MQTT v1.0.0 (Initial Release)
 
-Lightweight, native macOS menu bar agent that streams hardware, activity, and environmental telemetry directly to Home Assistant via MQTT with zero cloud dependencies and instant auto-discovery.
+Native macOS menu bar agent that sends hardware sensors, Focus mode status, and controls to Home Assistant via MQTT auto-discovery.
 
 ### Highlights
 - **Native Swift & AppKit**: Sub-15MB idle footprint, <0.2% CPU load.
