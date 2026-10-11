@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mac2MQTT: Live Sensor Reporting for macOS</title>
+  <title>StateBeacon: Live Sensor Reporting for macOS</title>
   <meta name="description" content="Native macOS menu bar agent that sends system telemetry, Focus mode state, and controls to Home Assistant via MQTT.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,8 +13,8 @@
       --bg: #0d1117;
       --card-bg: #161b22;
       --card-border: #30363d;
-      --accent: #2ea043;
-      --accent-hover: #3fb950;
+      --accent: #1f6feb;
+      --accent-hover: #388bfd;
       --blue: #58a6ff;
       --purple: #bc8cff;
       --text: #c9d1d9;
@@ -43,6 +43,14 @@
       padding: 72px 0 48px;
       text-align: center;
       position: relative;
+    }
+    .app-icon {
+      width: 96px;
+      height: 96px;
+      margin: 0 auto 20px;
+      display: block;
+      border-radius: 22px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
     }
     .badge {
       display: inline-block;
@@ -100,22 +108,23 @@
       border: 1px solid var(--card-border);
     }
     .btn-secondary:hover {
-      border-color: var(--blue);
-      color: var(--blue);
+      background: #21262d;
+      border-color: #8b949e;
+      transform: translateY(-1px);
     }
 
-    /* Metrics Grid */
+    /* Live Telemetry Metrics */
     .metrics {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(4, 1fr);
       gap: 16px;
-      margin: 48px 0;
+      margin-top: 56px;
     }
     .metric-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 12px;
-      padding: 24px;
+      padding: 20px 16px;
       text-align: center;
     }
     .metric-val {
@@ -124,7 +133,7 @@
       color: var(--text-bright);
       margin-bottom: 4px;
     }
-    .metric-val.green { color: var(--accent-hover); }
+    .metric-val.accent { color: var(--accent-hover); }
     .metric-val.blue { color: var(--blue); }
     .metric-label {
       font-size: 13px;
@@ -173,7 +182,7 @@
     }
     tr:last-child td { border-bottom: none; }
     .highlight-col {
-      background: rgba(46, 160, 67, 0.08);
+      background: rgba(31, 111, 235, 0.08);
       font-weight: 600;
       color: var(--text-bright);
     }
@@ -188,82 +197,74 @@
       gap: 20px;
       margin-top: 24px;
     }
-    @media (max-width: 960px) {
-      .features-grid {
-        grid-template-columns: 1fr;
-      }
-    }
     .feature-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 12px;
       padding: 24px;
-      overflow-wrap: break-word;
-      word-break: break-word;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
     .feature-card h3 {
-      font-size: 17px;
+      font-size: 18px;
+      font-weight: 600;
       color: var(--text-bright);
-      margin-bottom: 8px;
     }
     .feature-card p {
       font-size: 14px;
       color: var(--text-muted);
       line-height: 1.6;
+      word-break: normal;
       overflow-wrap: break-word;
-      word-break: break-word;
-    }
-    .feature-card code, code {
-      word-break: break-word;
-      overflow-wrap: anywhere;
     }
 
-    /* Steps */
+    /* Installation Steps */
     .steps {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 20px;
-      margin-top: 24px;
     }
     .step-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 12px;
       padding: 24px;
-      position: relative;
+      text-align: center;
     }
     .step-num {
-      width: 28px;
-      height: 28px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       background: rgba(88, 166, 255, 0.15);
       color: var(--blue);
+      font-weight: 700;
+      font-size: 16px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 14px;
+      margin: 0 auto 16px;
     }
     .step-card h3 {
-      font-size: 17px;
+      font-size: 16px;
+      font-weight: 600;
       color: var(--text-bright);
       margin-bottom: 8px;
     }
     .step-card p {
-      font-size: 14px;
-      color: var(--text-muted);
-    }
-    .step-card code {
-      background: var(--code-bg);
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 13px;
-      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      line-height: 1.5;
     }
 
-    /* Footer */
+    /* Responsive */
+    @media (max-width: 860px) {
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .features-grid { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr; }
+      h1 { font-size: 36px; }
+    }
+
     footer {
       border-top: 1px solid var(--card-border);
       padding: 40px 0;
@@ -281,16 +282,17 @@
 
   <header>
     <div class="container">
-      <div class="badge">macOS Golden Gate (macOS 13+)</div>
-      <h1>Live Sensor Reporting for macOS</h1>
-      <p class="hero-lead">Native menu bar client that connects your Mac to Home Assistant via MQTT auto-discovery without WebKit or background web views.</p>
+      <img src="app-icon.png" alt="StateBeacon App Icon" class="app-icon" width="96" height="96">
+      <div class="badge">macOS 13+ (Ventura, Sonoma, Sequoia)</div>
+      <h1>StateBeacon</h1>
+      <p class="hero-lead">Live Sensor Reporting for macOS</p>
       
       <div class="cta-row">
-        <a href="https://github.com/PinkPlastic/Mac2MQTT/releases/latest" class="btn btn-primary" target="_blank" rel="noopener">
+        <a href="https://github.com/PinkPlastic/StateBeacon/releases/latest" class="btn btn-primary" target="_blank" rel="noopener">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           Download Latest Release (.dmg)
         </a>
-        <a href="https://github.com/PinkPlastic/Mac2MQTT" class="btn btn-secondary">
+        <a href="https://github.com/PinkPlastic/StateBeacon" class="btn btn-secondary">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
           View on GitHub
         </a>
@@ -298,11 +300,11 @@
 
       <div class="metrics">
         <div class="metric-card">
-          <div class="metric-val green">&lt; 1.5 MB</div>
+          <div class="metric-val accent">&lt; 1.5 MB</div>
           <div class="metric-label">Bundle Size (vs 140MB+ Companion)</div>
         </div>
         <div class="metric-card">
-          <div class="metric-val green">~30 MB</div>
+          <div class="metric-val accent">~30 MB</div>
           <div class="metric-label">RAM Usage (Zero WebKit Overhead)</div>
         </div>
         <div class="metric-card">
@@ -328,7 +330,7 @@
           <thead>
             <tr>
               <th>Feature</th>
-              <th class="highlight-col">Mac2MQTT (macOS)</th>
+              <th class="highlight-col">StateBeacon (macOS)</th>
               <th>Official HA Companion (macOS)</th>
               <th>HASS.Agent 2 (Windows)</th>
             </tr>
@@ -348,51 +350,63 @@
             </tr>
             <tr>
               <td><strong>HA Setup</strong></td>
-              <td class="highlight-col">Instant MQTT Auto-Discovery</td>
-              <td>Manual Webhook Integration</td>
-              <td>MQTT Auto-Discovery</td>
-            </tr>
-            <tr>
-              <td><strong>Idle RAM</strong></td>
-              <td class="highlight-col">25 MB - 45 MB</td>
-              <td>250 MB - 650 MB</td>
-              <td>75 MB - 140 MB</td>
-            </tr>
-            <tr>
-              <td><strong>CPU Usage (Idle)</strong></td>
-              <td class="highlight-col">&lt; 0.1% (Event-driven)</td>
-              <td>1% - 3% (Periodic pollers)</td>
-              <td>0.5% - 1.5%</td>
+              <td class="highlight-col">Automatic MQTT Discovery (Zero YAML)</td>
+              <td>Internal Mobile App Integration</td>
+              <td>Automatic MQTT Discovery</td>
             </tr>
             <tr>
               <td><strong>Installer Size</strong></td>
               <td class="highlight-col">&lt; 1 MB DMG</td>
-              <td>120 MB - 180 MB</td>
-              <td>60 MB - 95 MB (.msi)</td>
+              <td>140 MB &ndash; 180 MB</td>
+              <td>60 MB &ndash; 95 MB (.msi)</td>
+            </tr>
+            <tr>
+              <td><strong>Memory Footprint</strong></td>
+              <td class="highlight-col">25 MB &ndash; 45 MB</td>
+              <td>250 MB &ndash; 650 MB (WebKit processes)</td>
+              <td>75 MB &ndash; 140 MB</td>
             </tr>
             <tr>
               <td><strong>Focus Mode Latency</strong></td>
-              <td class="highlight-col">&lt; 50 ms (Kernel vnode monitor)</td>
-              <td>30s - 120s (Polling)</td>
+              <td class="highlight-col">&lt; 50 ms (Kernel vnode event)</td>
+              <td>30s &ndash; 120s (Polling)</td>
               <td>Windows Focus Assist API</td>
             </tr>
             <tr>
-              <td><strong>UI Presence</strong></td>
-              <td class="highlight-col">Accessory daemon (No dock icon)</td>
-              <td>Full application (Dock icon)</td>
-              <td>System tray icon</td>
+              <td><strong>Frontmost App</strong></td>
+              <td class="highlight-col">Immediate (NSWorkspace event)</td>
+              <td>Delayed polling</td>
+              <td>Immediate hook</td>
             </tr>
             <tr>
-              <td><strong>Camera &amp; Mic State</strong></td>
-              <td class="highlight-col">Hardware listener (CoreAudio/CoreMediaIO)</td>
-              <td>Limited</td>
-              <td>DirectShow / MediaFoundation</td>
+              <td><strong>Microphone In-Use</strong></td>
+              <td class="highlight-col">CoreAudio IO running listener</td>
+              <td>AVFoundation polling</td>
+              <td>Windows Privacy Registry</td>
             </tr>
             <tr>
-              <td><strong>Sensor Pruning</strong></td>
-              <td class="highlight-col">Auto-removes unchecked entities</td>
-              <td>Static (Unused sensors remain)</td>
+              <td><strong>Camera In-Use</strong></td>
+              <td class="highlight-col">CoreMedia device state listener</td>
+              <td>AVFoundation polling</td>
+              <td>Windows Privacy Registry</td>
+            </tr>
+            <tr>
+              <td><strong>Audio Device Names</strong></td>
+              <td class="highlight-col">Hardware device name strings</td>
+              <td>Not supported</td>
+              <td>Endpoint device names</td>
+            </tr>
+            <tr>
+              <td><strong>Entity Pruning</strong></td>
+              <td class="highlight-col">Purges unselected entities in HA</td>
+              <td>Not supported</td>
               <td>Configurable</td>
+            </tr>
+            <tr>
+              <td><strong>Interface</strong></td>
+              <td class="highlight-col">Menu Bar Extra + Preferences</td>
+              <td>Dock Application + Full Web UI</td>
+              <td>System Tray + Settings</td>
             </tr>
           </tbody>
         </table>
@@ -409,15 +423,15 @@
       <div class="features-grid">
         <div class="feature-card">
           <h3>Native Swift vs. Catalyst WebKit</h3>
-          <p>The official Home Assistant companion app runs an iOS build via Mac Catalyst, keeping a WebKit browser engine and helper processes active in the background (using 250 MB to 650 MB of RAM). Mac2MQTT contains no web views. Written in native Swift with AppKit and Darwin APIs, it runs as an accessory daemon using roughly 30 MB of RAM.</p>
+          <p>The official Home Assistant companion app runs an iOS build via Mac Catalyst, keeping a WebKit browser engine and helper processes active in the background (using 250 MB to 650 MB of RAM). StateBeacon contains no web views. Written in native Swift with AppKit and Darwin APIs, it runs as an accessory daemon using roughly 30 MB of RAM.</p>
         </div>
         <div class="feature-card">
           <h3>Direct MQTT Socket vs. HTTP Webhooks</h3>
-          <p>Rather than routing periodic HTTP webhooks through cloud proxies, Mac2MQTT maintains a local TCP/TLS socket to your broker with Last Will and Testament (LWT) for instant offline detection. It follows standard Home Assistant Discovery format (<code>homeassistant/&lt;domain&gt;/...</code>), matching the entity conventions used by Windows HASS.Agent.</p>
+          <p>Rather than routing periodic HTTP webhooks through cloud proxies, StateBeacon maintains a local TCP/TLS socket to your broker with Last Will and Testament (LWT) for instant offline detection. It follows standard Home Assistant Discovery format (<code>homeassistant/&lt;domain&gt;/...</code>), matching the entity conventions used by Windows HASS.Agent.</p>
         </div>
         <div class="feature-card">
           <h3>Kernel Event Watchers vs. Timer Polling</h3>
-          <p>Rather than polling on a timer, Mac2MQTT listens to kernel file descriptor events (via <code>DispatchSourceFileSystemObject</code>) on the macOS <code>Assertions.json</code> database. Focus mode and Do Not Disturb transitions reach Home Assistant in under 50 milliseconds.</p>
+          <p>Rather than polling on a timer, StateBeacon listens to kernel file descriptor events (via <code>DispatchSourceFileSystemObject</code>) on the macOS <code>Assertions.json</code> database. Focus mode and Do Not Disturb transitions reach Home Assistant in under 50 milliseconds.</p>
         </div>
       </div>
     </div>
@@ -587,7 +601,7 @@
         <div class="step-card">
           <div class="step-num">1</div>
           <h3>Install App</h3>
-          <p>Download <code>Mac2MQTT.dmg</code>, open the disk image, and drag Mac2MQTT into your Applications folder.</p>
+          <p>Download <code>StateBeacon.dmg</code>, open the disk image, and drag StateBeacon into your Applications folder.</p>
         </div>
         <div class="step-card">
           <div class="step-num">2</div>
@@ -605,7 +619,7 @@
 
   <footer>
     <div class="container">
-      <p>Mac2MQTT is open-source under the MIT License. Built with native Swift for macOS.</p>
+      <p>StateBeacon is open-source under the MIT License. Built with native Swift for macOS.</p>
     </div>
   </footer>
 

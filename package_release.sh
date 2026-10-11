@@ -5,35 +5,35 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION="1.0.0"
 DIST_DIR="$DIR/dist"
 
-echo "=== Packaging Mac2MQTT v$VERSION ==="
+echo "=== Packaging StateBeacon v$VERSION ==="
 mkdir -p "$DIST_DIR"
 
 # 1. Build Application Bundle
-echo "1. Building Mac2MQTT.app..."
+echo "1. Building StateBeacon.app..."
 "$DIR/bundle.sh"
 
 # 2. Build DMG
-echo "2. Building Mac2MQTT.dmg..."
+echo "2. Building StateBeacon.dmg..."
 "$DIR/create_dmg.sh"
 
 # 3. Copy DMG to dist
-cp "$DIR/Mac2MQTT.dmg" "$DIST_DIR/Mac2MQTT-v$VERSION.dmg"
-cp "$DIR/Mac2MQTT.dmg" "$DIST_DIR/Mac2MQTT.dmg"
+cp "$DIR/StateBeacon.dmg" "$DIST_DIR/StateBeacon-v$VERSION.dmg"
+cp "$DIR/StateBeacon.dmg" "$DIST_DIR/StateBeacon.dmg"
 
 # 4. Create ZIP archive
-echo "3. Creating Mac2MQTT-v$VERSION.zip..."
+echo "3. Creating StateBeacon-v$VERSION.zip..."
 cd "$DIR"
-rm -f "$DIST_DIR/Mac2MQTT-v$VERSION.zip"
-ditto -c -k --keepParent "$DIR/Mac2MQTT.app" "$DIST_DIR/Mac2MQTT-v$VERSION.zip"
+rm -f "$DIST_DIR/StateBeacon-v$VERSION.zip"
+ditto -c -k --keepParent "$DIR/StateBeacon.app" "$DIST_DIR/StateBeacon-v$VERSION.zip"
 
 # 5. Generate SHA256 Checksums
 echo "4. Generating SHA256 Checksums..."
 cd "$DIST_DIR"
-shasum -a 256 "Mac2MQTT-v$VERSION.dmg" "Mac2MQTT.dmg" "Mac2MQTT-v$VERSION.zip" > "$DIST_DIR/SHA256SUMS.txt"
+shasum -a 256 "StateBeacon-v$VERSION.dmg" "StateBeacon.dmg" "StateBeacon-v$VERSION.zip" > "$DIST_DIR/SHA256SUMS.txt"
 
 # 6. Generate Release Notes
 cat << 'EOF' > "$DIST_DIR/RELEASE_NOTES.md"
-# Mac2MQTT v1.0.0 (Initial Release)
+# StateBeacon v1.0.0 (Initial Release)
 
 Native macOS menu bar agent that sends hardware sensors, Focus mode status, and controls to Home Assistant via MQTT auto-discovery.
 
@@ -52,9 +52,9 @@ Native macOS menu bar agent that sends hardware sensors, Focus mode status, and 
 - **Drag-and-Drop DMG**: Packaged in a visual DMG installer with direct `/Applications` shortcut.
 
 ### Installation
-1. Download **`Mac2MQTT.dmg`** below.
-2. Open the disk image and drag **Mac2MQTT** into **Applications**.
-3. Launch Mac2MQTT from Applications or Spotlight.
+1. Download **`StateBeacon.dmg`** below.
+2. Open the disk image and drag **StateBeacon** into **Applications**.
+3. Launch StateBeacon from Applications or Spotlight.
 4. Click the antenna menu bar icon to configure your MQTT broker connection and sensors.
 
 ### Checksums (SHA-256)

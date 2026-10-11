@@ -43,7 +43,7 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
         SensorDefinition(id: "memory_usage", name: "Memory Usage (%)", category: "System & Activity", desc: "RAM usage percentage"),
         SensorDefinition(id: "displays", name: "Displays Count", category: "System & Activity", desc: "Total connected displays"),
         SensorDefinition(id: "primary_display_id", name: "Primary Display ID", category: "System & Activity", desc: "Main display identifier"),
-        SensorDefinition(id: "app_version", name: "Mac2MQTT Version", category: "System & Activity", desc: "Client app release version"),
+        SensorDefinition(id: "app_version", name: "StateBeacon Version", category: "System & Activity", desc: "Client app release version"),
 
         // Audio & Camera
         SensorDefinition(id: "audio_input_in_use", name: "Microphone In-Use", category: "Audio & Video", desc: "Detects active microphone usage"),
@@ -186,7 +186,7 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        win.title = "Mac2MQTT Preferences"
+        win.title = "StateBeacon Preferences"
         win.center()
         win.isReleasedWhenClosed = false
         win.delegate = self

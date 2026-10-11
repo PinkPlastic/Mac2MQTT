@@ -4,7 +4,8 @@
 xcuserdata/
 DerivedData/
 .swiftpm/
-Mac2MQTT.app/
+*.app/
+StateBeacon.app/
 *.dmg
 !docs/*.dmg
 config.json

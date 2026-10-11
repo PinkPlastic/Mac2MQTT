@@ -12,7 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 @main
 @MainActor
-struct Mac2MQTTMain {
+struct StateBeaconMain {
     static func main() {
         let app = NSApplication.shared
         // Set as accessory: Runs strictly in the menu bar with NO Dock icon and NO startup window

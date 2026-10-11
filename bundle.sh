@@ -2,7 +2,7 @@
 set -e
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_DIR="$DIR/Mac2MQTT.app"
+APP_DIR="$DIR/StateBeacon.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
@@ -14,8 +14,8 @@ echo "Packaging $APP_DIR..."
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
-cp "$DIR/.build/release/Mac2MQTT" "$MACOS_DIR/Mac2MQTT"
-chmod +x "$MACOS_DIR/Mac2MQTT"
+cp "$DIR/.build/release/StateBeacon" "$MACOS_DIR/StateBeacon"
+chmod +x "$MACOS_DIR/StateBeacon"
 
 if [ -f "$DIR/Resources/AppIcon.icns" ]; then
     cp "$DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
@@ -27,13 +27,13 @@ cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>Mac2MQTT</string>
+    <string>StateBeacon</string>
     <key>CFBundleIdentifier</key>
-    <string>com.rufus.Mac2MQTT</string>
+    <string>com.rufus.StateBeacon</string>
     <key>CFBundleName</key>
-    <string>Mac2MQTT</string>
+    <string>StateBeacon</string>
     <key>CFBundleDisplayName</key>
-    <string>Mac2MQTT</string>
+    <string>StateBeacon</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundlePackageType</key>
@@ -47,15 +47,15 @@ cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
     <key>LSUIElement</key>
     <true/>
     <key>NSCameraUsageDescription</key>
-    <string>Mac2MQTT monitors active camera state for Home Assistant automations.</string>
+    <string>StateBeacon monitors active camera state for Home Assistant automations.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Mac2MQTT monitors active microphone state for Home Assistant automations.</string>
+    <string>StateBeacon monitors active microphone state for Home Assistant automations.</string>
     <key>NSFocusStatusUsageDescription</key>
-    <string>Mac2MQTT syncs your Mac's Focus mode state with Home Assistant.</string>
+    <string>StateBeacon syncs your Mac's Focus mode state with Home Assistant.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Mac2MQTT reads Wi-Fi SSID and BSSID for Home Assistant network presence.</string>
+    <string>StateBeacon reads Wi-Fi SSID and BSSID for Home Assistant network presence.</string>
     <key>NSLocationUsageDescription</key>
-    <string>Mac2MQTT reads Wi-Fi SSID and BSSID for Home Assistant network presence.</string>
+    <string>StateBeacon reads Wi-Fi SSID and BSSID for Home Assistant network presence.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>
@@ -65,7 +65,7 @@ EOF
 echo "Signing application bundle with ad-hoc signature..."
 codesign --force --deep --sign - "$APP_DIR"
 
-INSTALL_DIR="/Applications/Mac2MQTT.app"
+INSTALL_DIR="/Applications/StateBeacon.app"
 if [ -d "/Applications" ] && [ -w "/Applications" ]; then
     echo "Installing to $INSTALL_DIR..."
     rm -rf "$INSTALL_DIR" 2>/dev/null || true

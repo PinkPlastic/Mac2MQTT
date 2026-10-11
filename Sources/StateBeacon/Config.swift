@@ -91,14 +91,14 @@ public struct AppConfig: Codable {
 
     public static var configURL: URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let dir = home.appendingPathComponent(".config/Mac2MQTT")
+        let dir = home.appendingPathComponent(".config/StateBeacon")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("config.json")
     }
 
     public static var legacyConfigURL: URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appendingPathComponent(".config/HassMacAgent/config.json")
+        return home.appendingPathComponent(".config/Mac2MQTT/config.json")
     }
 
     public static func load() -> AppConfig {
@@ -108,7 +108,7 @@ public struct AppConfig: Codable {
             return config
         }
 
-        // Migrate from legacy HassMacAgent config if available
+        // Migrate from legacy Mac2MQTT config if available
         let legacy = legacyConfigURL
         if let data = try? Data(contentsOf: legacy),
            let config = try? JSONDecoder().decode(AppConfig.self, from: data) {

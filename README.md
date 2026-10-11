@@ -1,4 +1,4 @@
-# Mac2MQTT
+# StateBeacon
 
 [![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-blue.svg)](https://apple.com/macos)
 [![Architecture](https://img.shields.io/badge/architecture-Universal%20(Apple%20Silicon%20%2F%20Intel)-purple.svg)]()
@@ -7,7 +7,7 @@
 
 Native macOS menu bar agent that sends system telemetry, Focus mode state, and controls to Home Assistant via MQTT auto-discovery.
 
-Built in pure Swift with AppKit and Darwin APIs, Mac2MQTT runs as an accessory process without a Dock icon, web views, or WebKit overhead.
+Built in pure Swift with AppKit and Darwin APIs, StateBeacon runs as an accessory process without a Dock icon, web views, or WebKit overhead.
 
 ---
 
@@ -24,7 +24,7 @@ Built in pure Swift with AppKit and Darwin APIs, Mac2MQTT runs as an accessory p
 
 ## Comparison
 
-| Feature / Metric | Mac2MQTT (macOS) | Official HA Companion (macOS) | HASS.Agent 2 (Windows) |
+| Feature / Metric | StateBeacon (macOS) | Official HA Companion (macOS) | HASS.Agent 2 (Windows) |
 | :--- | :--- | :--- | :--- |
 | **Platform** | macOS 13+ (Ventura, Sonoma, Sequoia) | macOS 11+ (Intel / Apple Silicon) | Windows 10 & 11 (x64 / ARM64) |
 | **Tech Stack** | Native Swift (AppKit + Darwin) | Mac Catalyst (iOS UIKit + WebKit) | .NET 8 / C# (WPF + Win32) |
@@ -62,7 +62,7 @@ All entities register under a single consolidated Device in Home Assistant (**Se
 | **Memory Usage** | `sensor` | System RAM usage percentage (%) |
 | **Connected Displays** | `sensor` | Count of active external and built-in screens |
 | **Primary Display ID** | `sensor` | Display identifier for the main monitor |
-| **App Version** | `sensor` | Installed Mac2MQTT version |
+| **App Version** | `sensor` | Installed StateBeacon version |
 
 ### Network and Wi-Fi
 | Entity | Type | Description |
@@ -97,11 +97,11 @@ All entities register under a single consolidated Device in Home Assistant (**Se
 ## Installation and Setup
 
 ### 1. Download and Install
-Download `Mac2MQTT.dmg` from [Releases](https://github.com/PinkPlastic/Mac2MQTT/releases), open the disk image, and drag **Mac2MQTT** into your **Applications** folder.
+Download `StateBeacon.dmg` from [Releases](https://github.com/PinkPlastic/StateBeacon/releases), open the disk image, and drag **StateBeacon** into your **Applications** folder.
 
 ### 2. Permissions (Initial Launch)
 Open **Preferences -> Permissions**:
-1. **Full Disk Access**: Click **Open Settings** and enable `Mac2MQTT` to allow Focus mode tracking.
+1. **Full Disk Access**: Click **Open Settings** and enable `StateBeacon` to allow Focus mode tracking.
 2. **Location Services**: Click **Grant Permission** to allow reading local Wi-Fi SSID.
 
 ### 3. Configure MQTT Connection
@@ -120,8 +120,8 @@ Requirements: macOS 13+, Xcode 15+ (or Command Line Tools), Swift 5.9+.
 
 ```bash
 # Clone the repository
-git clone https://github.com/PinkPlastic/Mac2MQTT.git
-cd Mac2MQTT
+git clone https://github.com/PinkPlastic/StateBeacon.git
+cd StateBeacon
 
 # Build the application bundle
 ./bundle.sh

@@ -2,16 +2,16 @@
 set -e
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_PATH="$DIR/Mac2MQTT.app"
-DMG_NAME="Mac2MQTT.dmg"
+APP_PATH="$DIR/StateBeacon.app"
+DMG_NAME="StateBeacon.dmg"
 DMG_PATH="$DIR/$DMG_NAME"
-TEMP_DMG="/tmp/mac2mqtt_rw_$$.dmg"
-VOL_NAME="Mac2MQTT"
+TEMP_DMG="/tmp/statebeacon_rw_$$.dmg"
+VOL_NAME="StateBeacon"
 MOUNT_POINT="/Volumes/$VOL_NAME"
 
-# 1. Ensure Mac2MQTT.app is freshly bundled
+# 1. Ensure StateBeacon.app is freshly bundled
 if [ ! -d "$APP_PATH" ]; then
-    echo "Mac2MQTT.app not found. Running bundle.sh..."
+    echo "StateBeacon.app not found. Running bundle.sh..."
     "$DIR/bundle.sh"
 fi
 
@@ -62,7 +62,7 @@ ctx.setLineJoin(.round)
 ctx.strokePath()
 
 // 4. Header title
-let title = "Mac2MQTT"
+let title = "StateBeacon"
 let titleFont = NSFont.systemFont(ofSize: 17, weight: .bold)
 let titleAttrs: [NSAttributedString.Key: Any] = [
     .font: titleFont,
@@ -71,8 +71,8 @@ let titleAttrs: [NSAttributedString.Key: Any] = [
 let titleSize = (title as NSString).size(withAttributes: titleAttrs)
 (title as NSString).draw(at: CGPoint(x: (width - titleSize.width) / 2, y: 308), withAttributes: titleAttrs)
 
-// 5. Header subline: "macOS Device Sensors to MQTT"
-let sub = "macOS Device Sensors to MQTT"
+// 5. Header subline: "Live Sensor Reporting for macOS"
+let sub = "Live Sensor Reporting for macOS"
 let subFont = NSFont.systemFont(ofSize: 11, weight: .medium)
 let subAttrs: [NSAttributedString.Key: Any] = [
     .font: subFont,
@@ -111,7 +111,7 @@ hdiutil attach "$TEMP_DMG" -noautoopen -mountpoint "$MOUNT_POINT"
 
 # 5. Populate volume
 echo "Copying files to $MOUNT_POINT..."
-cp -R "$APP_PATH" "$MOUNT_POINT/Mac2MQTT.app"
+cp -R "$APP_PATH" "$MOUNT_POINT/StateBeacon.app"
 ln -s /Applications "$MOUNT_POINT/Applications"
 
 mkdir -p "$MOUNT_POINT/.background"
@@ -140,7 +140,7 @@ tell application "Finder"
         set arrangement of viewOptions to not arranged
         set icon size of viewOptions to 128
         set background picture of viewOptions to file ".background:background.png"
-        set position of item "Mac2MQTT.app" of container window to {130, 180}
+        set position of item "StateBeacon.app" of container window to {130, 180}
         set position of item "Applications" of container window to {410, 180}
         close
         open
