@@ -9,3 +9,4 @@ Mac2MQTT.app/
 config.json
 scratch/
 .*_staging/
+/dist/

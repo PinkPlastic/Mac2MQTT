@@ -66,13 +66,15 @@ echo "Signing application bundle with ad-hoc signature..."
 codesign --force --deep --sign - "$APP_DIR"
 
 INSTALL_DIR="/Applications/Mac2MQTT.app"
-echo "Installing to $INSTALL_DIR..."
-rm -rf "$INSTALL_DIR"
-cp -R "$APP_DIR" "$INSTALL_DIR"
-
-echo "Registering with LaunchServices and Spotlight..."
-/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$INSTALL_DIR" || true
-mdimport "$INSTALL_DIR" || true
-touch "$INSTALL_DIR"
-
-echo "Done! Application installed and registered at: $INSTALL_DIR"
+if [ -d "/Applications" ] && [ -w "/Applications" ]; then
+    echo "Installing to $INSTALL_DIR..."
+    rm -rf "$INSTALL_DIR" 2>/dev/null || true
+    cp -R "$APP_DIR" "$INSTALL_DIR" 2>/dev/null || true
+    echo "Registering with LaunchServices and Spotlight..."
+    /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$INSTALL_DIR" 2>/dev/null || true
+    mdimport "$INSTALL_DIR" 2>/dev/null || true
+    touch "$INSTALL_DIR" 2>/dev/null || true
+    echo "Done! Application installed and registered at: $INSTALL_DIR"
+else
+    echo "Skipping /Applications installation in headless/CI environment."
+fi

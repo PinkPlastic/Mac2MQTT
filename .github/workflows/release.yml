@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: macos-14
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Package Release Assets
+        run: |
+          chmod +x bundle.sh create_dmg.sh package_release.sh
+          ./package_release.sh
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Mac2MQTT-v*.dmg
+            dist/Mac2MQTT.dmg
+            dist/Mac2MQTT-v*.zip
+            dist/SHA256SUMS.txt
+          body_path: dist/RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
