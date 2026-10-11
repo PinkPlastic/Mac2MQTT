@@ -26,7 +26,7 @@ Built in pure Swift with AppKit and Darwin APIs, StateBeacon runs as an accessor
 
 | Feature / Metric | StateBeacon (macOS) | Legacy mac2mqtt (Go) | Official HA Companion (macOS) | HASS.Agent 2 (Windows) |
 | :--- | :--- | :--- | :--- | :--- |
-| **Platform** | macOS 13+ (Ventura, Sonoma, Sequoia) | macOS (Intel / Apple Silicon) | macOS 11+ (Intel / Apple Silicon) | Windows 10 & 11 (x64 / ARM64) |
+| **Platform** | macOS 13+ (Ventura, Sonoma, Sequoia, Golden Gate) | macOS (Intel / Apple Silicon) | macOS 11+ (Intel / Apple Silicon) | Windows 10 & 11 (x64 / ARM64) |
 | **Tech Stack** | Native Swift (AppKit + Darwin) | Go (Headless CLI daemon) | Mac Catalyst (iOS UIKit + WebKit) | .NET 8 / C# (WPF + Win32) |
 | **UI Mode** | Menu bar daemon (No dock icon) | None (Terminal / LaunchAgent) | Application (Dock icon) | System tray icon |
 | **Installer Size** | < 1 MB DMG | Source / manual binary | 120 MB - 180 MB | 60 MB - 95 MB (.msi) |
