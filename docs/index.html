@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>StateBeacon: Live Sensor Reporting for macOS</title>
-  <meta name="description" content="Native macOS menu bar agent that sends 41 system telemetry sensors, peripheral states, Focus mode, and controls to Home Assistant via MQTT with full HASS.Agent parity.">
+  <meta name="description" content="Native macOS menu bar agent that sends 40+ system telemetry sensors, peripheral states, Focus mode, and controls to Home Assistant via MQTT with full HASS.Agent parity.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -141,7 +141,7 @@
       font-weight: 500;
     }
 
-    /* Comparison Table */
+    /* Sections */
     section {
       padding: 48px 0;
     }
@@ -157,66 +157,6 @@
       color: var(--text-muted);
       margin-bottom: 36px;
       font-size: 15px;
-    }
-
-    .table-container {
-      overflow-x: auto;
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      background: var(--card-bg);
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-      font-size: 14px;
-    }
-    th, td {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--card-border);
-    }
-    th {
-      background: rgba(255, 255, 255, 0.02);
-      color: var(--text-bright);
-      font-weight: 600;
-    }
-    tr:last-child td { border-bottom: none; }
-    .highlight-col {
-      background: rgba(31, 111, 235, 0.08);
-      font-weight: 600;
-      color: var(--text-bright);
-    }
-    th.highlight-col {
-      color: var(--accent-hover);
-    }
-
-    /* Feature Cards */
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-      margin-top: 24px;
-    }
-    .feature-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .feature-card h3 {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--text-bright);
-    }
-    .feature-card p {
-      font-size: 14px;
-      color: var(--text-muted);
-      line-height: 1.6;
-      word-break: normal;
-      overflow-wrap: break-word;
     }
 
     /* Installation Steps */
@@ -257,10 +197,41 @@
       line-height: 1.5;
     }
 
+    /* Comparison Table */
+    .table-container {
+      overflow-x: auto;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      background: var(--card-bg);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    th {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-bright);
+      font-weight: 600;
+    }
+    tr:last-child td { border-bottom: none; }
+    .highlight-col {
+      background: rgba(31, 111, 235, 0.08);
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+    th.highlight-col {
+      color: var(--accent-hover);
+    }
+
     /* Responsive */
     @media (max-width: 860px) {
       .metrics { grid-template-columns: repeat(2, 1fr); }
-      .features-grid { grid-template-columns: 1fr; }
       .steps { grid-template-columns: 1fr; }
       h1 { font-size: 36px; }
     }
@@ -285,7 +256,7 @@
       <img src="app-icon.png" alt="StateBeacon App Icon" class="app-icon" width="96" height="96">
       <div class="badge">macOS Golden Gate Ready (macOS 13+)</div>
       <h1>StateBeacon</h1>
-      <p class="hero-lead">Native macOS menu bar agent that sends 41 system telemetry sensors, peripheral states, Focus mode, and controls to Home Assistant via MQTT.</p>
+      <p class="hero-lead">Native macOS menu bar agent that sends 40+ system telemetry sensors, peripheral states, Focus mode, and controls to Home Assistant via MQTT.</p>
       
       <div class="cta-row">
         <a href="https://github.com/PinkPlastic/StateBeacon/releases/latest" class="btn btn-primary" target="_blank" rel="noopener">
@@ -308,7 +279,7 @@
           <div class="metric-label">Idle RAM (Zero WebKit Overhead)</div>
         </div>
         <div class="metric-card">
-          <div class="metric-val blue">41</div>
+          <div class="metric-val blue">40+</div>
           <div class="metric-label">Sensors &amp; Controls (HASS.Agent Parity)</div>
         </div>
         <div class="metric-card">
@@ -319,11 +290,37 @@
     </div>
   </header>
 
-  <!-- Comparison Section -->
+  <!-- Quick Setup -->
+  <section id="setup">
+    <div class="container">
+      <h2>Installation</h2>
+      <p class="section-desc">Get up and running in three simple steps.</p>
+
+      <div class="steps">
+        <div class="step-card">
+          <div class="step-num">1</div>
+          <h3>Install App</h3>
+          <p>Download <code>StateBeacon.dmg</code>, open the disk image, and drag StateBeacon into your Applications folder.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">2</div>
+          <h3>Configure Broker</h3>
+          <p>Click the antenna icon in the menu bar, open Preferences, and enter your MQTT broker IP and credentials.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">3</div>
+          <h3>Automatic Discovery</h3>
+          <p>Your Mac appears in Home Assistant under <strong>Settings &rarr; Devices &amp; Services &rarr; MQTT</strong>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Platform Comparison Section -->
   <section id="comparison">
     <div class="container">
-      <h2>Architectural Breakdown</h2>
-      <p class="section-desc">Comparison with legacy mac2mqtt, the official macOS Companion App, and Windows HASS.Agent.</p>
+      <h2>Platform Comparison</h2>
+      <p class="section-desc">Comparing the leading desktop integrations across macOS, Windows, and Linux.</p>
 
       <div class="table-container">
         <table>
@@ -331,147 +328,55 @@
             <tr>
               <th>Feature</th>
               <th class="highlight-col">StateBeacon (macOS)</th>
-              <th>Legacy mac2mqtt (Go)</th>
-              <th>Official HA Companion (macOS)</th>
               <th>HASS.Agent 2 (Windows)</th>
+              <th>System Bridge (Linux)</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><strong>Architecture</strong></td>
-              <td class="highlight-col">Native Swift (Darwin and AppKit)</td>
-              <td>Go (Headless CLI daemon)</td>
-              <td>Mac Catalyst (iOS UIKit + WebKit)</td>
-              <td>.NET 8 / WPF (Win32)</td>
+              <td><strong>Primary Platform</strong></td>
+              <td class="highlight-col">macOS 13+</td>
+              <td>Windows 10 / 11</td>
+              <td>Linux (and Windows)</td>
             </tr>
             <tr>
-              <td><strong>Protocol</strong></td>
-              <td class="highlight-col">Direct MQTT socket (TCP/TLS)</td>
-              <td>MQTT socket (YAML config)</td>
-              <td>HTTP Webhooks API</td>
-              <td>MQTT socket + local REST API</td>
+              <td><strong>Technology Stack</strong></td>
+              <td class="highlight-col">Native Swift &amp; AppKit</td>
+              <td>.NET 8 &amp; WPF</td>
+              <td>Go &amp; WebSocket API</td>
             </tr>
             <tr>
-              <td><strong>HA Setup</strong></td>
-              <td class="highlight-col">Automatic MQTT Discovery (Zero YAML)</td>
-              <td>Manual YAML configuration</td>
-              <td>Internal Mobile App Integration</td>
-              <td>Automatic MQTT Discovery</td>
-            </tr>
-            <tr>
-              <td><strong>Installer Size</strong></td>
-              <td class="highlight-col">&lt; 1 MB DMG</td>
-              <td>Source / manual binary</td>
-              <td>140 MB &ndash; 180 MB</td>
-              <td>60 MB &ndash; 95 MB (.msi)</td>
+              <td><strong>Integration Protocol</strong></td>
+              <td class="highlight-col">Direct MQTT Discovery</td>
+              <td>MQTT Discovery &amp; REST</td>
+              <td>Local WebSocket &amp; REST API</td>
             </tr>
             <tr>
               <td><strong>Memory Footprint</strong></td>
-              <td class="highlight-col">14 MB &ndash; 30 MB</td>
-              <td>Unbounded (Known memory leaks)</td>
-              <td>250 MB &ndash; 650 MB (WebKit processes)</td>
+              <td class="highlight-col">~14 MB &ndash; 30 MB</td>
               <td>75 MB &ndash; 140 MB</td>
+              <td>60 MB &ndash; 120 MB</td>
             </tr>
             <tr>
-              <td><strong>Dependencies</strong></td>
-              <td class="highlight-col">Zero (Pure native APIs)</td>
-              <td>Requires npm, BetterDisplay CLI</td>
-              <td>Zero</td>
-              <td>Zero</td>
+              <td><strong>Sensor &amp; Control Depth</strong></td>
+              <td class="highlight-col">40+ native sensors &amp; controls</td>
+              <td>30+ sensors &amp; controls</td>
+              <td>25+ system &amp; media modules</td>
             </tr>
             <tr>
-              <td><strong>Sensor Depth</strong></td>
-              <td class="highlight-col">41 hardware, peripheral &amp; privacy entities</td>
-              <td>4 to 7 basic sensors</td>
-              <td>Fixed mobile sensors</td>
-              <td>30+ sensors and controls</td>
+              <td><strong>Hardware Privacy &amp; Media</strong></td>
+              <td class="highlight-col">Hardware CoreAudio &amp; CoreMediaIO hooks</td>
+              <td>Windows Privacy Registry hooks</td>
+              <td>Media player &amp; process queries</td>
             </tr>
             <tr>
-              <td><strong>Hardware Privacy</strong></td>
-              <td class="highlight-col">CoreAudio / CoreMediaIO listeners (Mic &amp; Cam)</td>
-              <td>Not supported</td>
-              <td>AVFoundation polling</td>
-              <td>Windows Privacy Registry</td>
-            </tr>
-            <tr>
-              <td><strong>Focus Mode Latency</strong></td>
-              <td class="highlight-col">&lt; 50 ms (Kernel vnode event)</td>
-              <td>Not supported</td>
-              <td>30s &ndash; 120s (Polling)</td>
-              <td>Windows Focus Assist API</td>
-            </tr>
-            <tr>
-              <td><strong>Frontmost App &amp; Window</strong></td>
-              <td class="highlight-col">Immediate (NSWorkspace &amp; AX observer)</td>
-              <td>Not supported</td>
-              <td>Delayed polling</td>
-              <td>Immediate hook</td>
-            </tr>
-            <tr>
-              <td><strong>Audio Device Names</strong></td>
-              <td class="highlight-col">Hardware device name strings</td>
-              <td>Not supported</td>
-              <td>Not supported</td>
-              <td>Endpoint device names</td>
-            </tr>
-            <tr>
-              <td><strong>Permissions (TCC)</strong></td>
-              <td class="highlight-col">Status checks + auto-activation (FDA, Location, BT, AX)</td>
-              <td>None (Silent failures)</td>
-              <td>System prompt</td>
-              <td>Windows UAC</td>
-            </tr>
-            <tr>
-              <td><strong>Entity Pruning</strong></td>
-              <td class="highlight-col">Purges unselected entities in HA</td>
-              <td>No (Orphaned entities persist)</td>
-              <td>Not supported</td>
-              <td>Configurable</td>
-            </tr>
-            <tr>
-              <td><strong>Interface</strong></td>
-              <td class="highlight-col">Menu Bar Extra + Preferences</td>
-              <td>None (Terminal / LaunchAgent)</td>
-              <td>Dock Application + Full Web UI</td>
-              <td>System Tray + Settings</td>
+              <td><strong>Desktop Experience</strong></td>
+              <td class="highlight-col">Lightweight menu bar daemon</td>
+              <td>System tray utility</td>
+              <td>Background daemon &amp; tray</td>
             </tr>
           </tbody>
         </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- Technical Architecture Deep Dive -->
-  <section id="deep-dive" style="background: rgba(255, 255, 255, 0.01); border-top: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border);">
-    <div class="container">
-      <h2>Technical Architecture</h2>
-      <p class="section-desc">Key architectural differences for local desktop automation.</p>
-
-      <div class="features-grid">
-        <div class="feature-card">
-          <h3>Native Swift vs. Catalyst WebKit</h3>
-          <p>The official Home Assistant companion app runs an iOS build via Mac Catalyst, keeping a WebKit browser engine and helper processes active in the background (using 250 MB to 650 MB of RAM). StateBeacon contains no web views. Written in native Swift with AppKit and Darwin APIs, it runs as an accessory daemon using under 15 MB of idle RAM.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Direct MQTT Socket vs. HTTP Webhooks</h3>
-          <p>Rather than routing periodic HTTP webhooks through cloud proxies, StateBeacon maintains a local TCP/TLS socket to your broker with Last Will and Testament (LWT) for instant offline detection. It follows standard Home Assistant Discovery format (<code>homeassistant/&lt;domain&gt;/...</code>), matching the entity conventions used by Windows HASS.Agent.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Kernel Event Watchers vs. Timer Polling</h3>
-          <p>Rather than polling on a timer, StateBeacon listens to kernel file descriptor events (via <code>DispatchSourceFileSystemObject</code>) on the macOS <code>Assertions.json</code> database. Focus mode and Do Not Disturb transitions reach Home Assistant in under 50 milliseconds.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Full HASS.Agent Sensor Parity</h3>
-          <p>Brings the complete telemetry depth of Windows HASS.Agent to macOS with 41 entities. Monitor GPU core utilization, macOS thermal pressure, Bluetooth Classic and LE peripherals, system session lock states, console users, and audio volume percentages with zero external dependencies.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Instant AX Window Observation</h3>
-          <p>StateBeacon observes foreground application and window title changes in real time (&lt;50 ms) using native macOS Accessibility (AX) hooks combined with <code>NSWorkspace</code> activation notifications, completely avoiding battery-draining window polling loops.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Graceful Permissions &amp; Entity Pruning</h3>
-          <p>The dedicated Permissions hub provides live TCC authorization tracking for Full Disk Access, Location, Bluetooth, and Accessibility. Unchecked sensors in Preferences send empty discovery payloads, pruning unneeded entities directly from your Home Assistant registry.</p>
-        </div>
       </div>
     </div>
   </section>
@@ -480,7 +385,7 @@
   <section id="sensors">
     <div class="container">
       <h2>Sensor and Control Matrix</h2>
-      <p class="section-desc">41 native sensors, switches, and remote control buttons published to Home Assistant.</p>
+      <p class="section-desc">40+ native sensors, switches, and remote control buttons published to Home Assistant.</p>
 
       <div class="table-container">
         <table>
@@ -707,32 +612,6 @@
             </tr>
           </tbody>
         </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- Quick Setup -->
-  <section id="setup">
-    <div class="container">
-      <h2>Installation</h2>
-      <p class="section-desc">Setup in three steps.</p>
-
-      <div class="steps">
-        <div class="step-card">
-          <div class="step-num">1</div>
-          <h3>Install App</h3>
-          <p>Download <code>StateBeacon.dmg</code>, open the disk image, and drag StateBeacon into your Applications folder.</p>
-        </div>
-        <div class="step-card">
-          <div class="step-num">2</div>
-          <h3>Configure Broker</h3>
-          <p>Click the antenna icon in the menu bar, open Preferences, and enter your MQTT broker IP and credentials.</p>
-        </div>
-        <div class="step-card">
-          <div class="step-num">3</div>
-          <h3>Automatic Discovery</h3>
-          <p>Your Mac appears in Home Assistant under <strong>Settings &rarr; Devices &amp; Services &rarr; MQTT</strong>.</p>
-        </div>
       </div>
     </div>
   </section>
