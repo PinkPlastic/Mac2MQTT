@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>StateBeacon: Live Sensor Reporting for macOS</title>
-  <meta name="description" content="Native macOS menu bar agent that sends system telemetry, Focus mode state, and controls to Home Assistant via MQTT.">
+  <meta name="description" content="Native macOS menu bar agent that sends 41 system telemetry sensors, peripheral states, Focus mode, and controls to Home Assistant via MQTT with full HASS.Agent parity.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -285,7 +285,7 @@
       <img src="app-icon.png" alt="StateBeacon App Icon" class="app-icon" width="96" height="96">
       <div class="badge">macOS Golden Gate Ready (macOS 13+)</div>
       <h1>StateBeacon</h1>
-      <p class="hero-lead">Live Sensor Reporting for macOS</p>
+      <p class="hero-lead">Native macOS menu bar agent that sends 41 system telemetry sensors, peripheral states, Focus mode, and controls to Home Assistant via MQTT.</p>
       
       <div class="cta-row">
         <a href="https://github.com/PinkPlastic/StateBeacon/releases/latest" class="btn btn-primary" target="_blank" rel="noopener">
@@ -300,20 +300,20 @@
 
       <div class="metrics">
         <div class="metric-card">
-          <div class="metric-val accent">&lt; 1.5 MB</div>
-          <div class="metric-label">Bundle Size (vs 140MB+ Companion)</div>
+          <div class="metric-val accent">&lt; 1 MB</div>
+          <div class="metric-label">DMG Installer Size</div>
         </div>
         <div class="metric-card">
-          <div class="metric-val accent">~30 MB</div>
-          <div class="metric-label">RAM Usage (Zero WebKit Overhead)</div>
+          <div class="metric-val accent">~14 MB</div>
+          <div class="metric-label">Idle RAM (Zero WebKit Overhead)</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val blue">41</div>
+          <div class="metric-label">Sensors &amp; Controls (HASS.Agent Parity)</div>
         </div>
         <div class="metric-card">
           <div class="metric-val blue">&lt; 50 ms</div>
-          <div class="metric-label">Focus Mode and App Switch Latency</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-val blue">100%</div>
-          <div class="metric-label">Local MQTT Auto-Discovery</div>
+          <div class="metric-label">Kernel &amp; AX Event Latency</div>
         </div>
       </div>
     </div>
@@ -367,7 +367,7 @@
             </tr>
             <tr>
               <td><strong>Memory Footprint</strong></td>
-              <td class="highlight-col">25 MB &ndash; 45 MB</td>
+              <td class="highlight-col">14 MB &ndash; 30 MB</td>
               <td>Unbounded (Known memory leaks)</td>
               <td>250 MB &ndash; 650 MB (WebKit processes)</td>
               <td>75 MB &ndash; 140 MB</td>
@@ -381,7 +381,7 @@
             </tr>
             <tr>
               <td><strong>Sensor Depth</strong></td>
-              <td class="highlight-col">25 sensors and controls</td>
+              <td class="highlight-col">41 hardware, peripheral &amp; privacy entities</td>
               <td>4 to 7 basic sensors</td>
               <td>Fixed mobile sensors</td>
               <td>30+ sensors and controls</td>
@@ -401,8 +401,8 @@
               <td>Windows Focus Assist API</td>
             </tr>
             <tr>
-              <td><strong>Frontmost App</strong></td>
-              <td class="highlight-col">Immediate (NSWorkspace event)</td>
+              <td><strong>Frontmost App &amp; Window</strong></td>
+              <td class="highlight-col">Immediate (NSWorkspace &amp; AX observer)</td>
               <td>Not supported</td>
               <td>Delayed polling</td>
               <td>Immediate hook</td>
@@ -416,7 +416,7 @@
             </tr>
             <tr>
               <td><strong>Permissions (TCC)</strong></td>
-              <td class="highlight-col">Status checks + auto-activation</td>
+              <td class="highlight-col">Status checks + auto-activation (FDA, Location, BT, AX)</td>
               <td>None (Silent failures)</td>
               <td>System prompt</td>
               <td>Windows UAC</td>
@@ -450,7 +450,7 @@
       <div class="features-grid">
         <div class="feature-card">
           <h3>Native Swift vs. Catalyst WebKit</h3>
-          <p>The official Home Assistant companion app runs an iOS build via Mac Catalyst, keeping a WebKit browser engine and helper processes active in the background (using 250 MB to 650 MB of RAM). StateBeacon contains no web views. Written in native Swift with AppKit and Darwin APIs, it runs as an accessory daemon using roughly 30 MB of RAM.</p>
+          <p>The official Home Assistant companion app runs an iOS build via Mac Catalyst, keeping a WebKit browser engine and helper processes active in the background (using 250 MB to 650 MB of RAM). StateBeacon contains no web views. Written in native Swift with AppKit and Darwin APIs, it runs as an accessory daemon using under 15 MB of idle RAM.</p>
         </div>
         <div class="feature-card">
           <h3>Direct MQTT Socket vs. HTTP Webhooks</h3>
@@ -460,6 +460,18 @@
           <h3>Kernel Event Watchers vs. Timer Polling</h3>
           <p>Rather than polling on a timer, StateBeacon listens to kernel file descriptor events (via <code>DispatchSourceFileSystemObject</code>) on the macOS <code>Assertions.json</code> database. Focus mode and Do Not Disturb transitions reach Home Assistant in under 50 milliseconds.</p>
         </div>
+        <div class="feature-card">
+          <h3>Full HASS.Agent Sensor Parity</h3>
+          <p>Brings the complete telemetry depth of Windows HASS.Agent to macOS with 41 entities. Monitor GPU core utilization, macOS thermal pressure, Bluetooth Classic and LE peripherals, system session lock states, console users, and audio volume percentages with zero external dependencies.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Instant AX Window Observation</h3>
+          <p>StateBeacon observes foreground application and window title changes in real time (&lt;50 ms) using native macOS Accessibility (AX) hooks combined with <code>NSWorkspace</code> activation notifications, completely avoiding battery-draining window polling loops.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Graceful Permissions &amp; Entity Pruning</h3>
+          <p>The dedicated Permissions hub provides live TCC authorization tracking for Full Disk Access, Location, Bluetooth, and Accessibility. Unchecked sensors in Preferences send empty discovery payloads, pruning unneeded entities directly from your Home Assistant registry.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -468,7 +480,7 @@
   <section id="sensors">
     <div class="container">
       <h2>Sensor and Control Matrix</h2>
-      <p class="section-desc">25 native sensors, switches, and remote control buttons published to Home Assistant.</p>
+      <p class="section-desc">41 native sensors, switches, and remote control buttons published to Home Assistant.</p>
 
       <div class="table-container">
         <table>
@@ -482,20 +494,30 @@
           </thead>
           <tbody>
             <tr>
-              <td rowspan="6"><strong>Privacy &amp; Audio</strong></td>
-              <td>Microphone In-Use</td>
-              <td><code>binary_sensor</code></td>
-              <td>Active microphone stream detection via CoreAudio listener</td>
+              <td rowspan="6"><strong>Audio &amp; Video</strong></td>
+              <td>Audio Input (Microphone)</td>
+              <td><code>sensor</code></td>
+              <td>Connected microphone device name &amp; streaming in-use state</td>
             </tr>
             <tr>
-              <td>Active Microphone Name</td>
+              <td>Audio Output</td>
               <td><code>sensor</code></td>
-              <td>Connected input device (e.g., <em>Blue Yeti</em>, <em>MacBook Pro Mic</em>)</td>
+              <td>Connected audio output device, volume &amp; playback state</td>
+            </tr>
+            <tr>
+              <td>Master Volume</td>
+              <td><code>sensor</code></td>
+              <td>Default output volume percentage (0&ndash;100%) via CoreAudio</td>
+            </tr>
+            <tr>
+              <td>Audio Muted</td>
+              <td><code>binary_sensor</code></td>
+              <td>Indicates whether macOS system output audio is currently muted</td>
             </tr>
             <tr>
               <td>Camera In-Use</td>
               <td><code>binary_sensor</code></td>
-              <td>Webcam streaming indicator state</td>
+              <td>Active camera / webcam stream detection via CoreMediaIO</td>
             </tr>
             <tr>
               <td>Active Camera Name</td>
@@ -503,30 +525,91 @@
               <td>Connected camera device (e.g., <em>FaceTime HD</em>, <em>Logitech Brio</em>)</td>
             </tr>
             <tr>
-              <td>Audio Output Playing</td>
-              <td><code>binary_sensor</code></td>
-              <td>Active audio output stream detection</td>
-            </tr>
-            <tr>
-              <td>Active Audio Output Name</td>
+              <td rowspan="5"><strong>Peripherals &amp; Hardware</strong></td>
+              <td>Active Window Title</td>
               <td><code>sensor</code></td>
-              <td>Connected output device (e.g., <em>AirPods Pro</em>, <em>Studio Display</em>)</td>
+              <td>Title of currently focused application window via AX observer</td>
             </tr>
             <tr>
-              <td rowspan="7"><strong>System &amp; Presence</strong></td>
+              <td>GPU Load (%)</td>
+              <td><code>sensor</code></td>
+              <td>Live GPU core utilization percentage sampled via IOKit accelerator</td>
+            </tr>
+            <tr>
+              <td>Thermal Pressure State</td>
+              <td><code>sensor</code></td>
+              <td>macOS thermal throttling status (<em>Nominal</em>, <em>Fair</em>, <em>Serious</em>, <em>Critical</em>)</td>
+            </tr>
+            <tr>
+              <td>Bluetooth Devices</td>
+              <td><code>sensor</code></td>
+              <td>Count of connected Bluetooth Classic devices + JSON attribute list</td>
+            </tr>
+            <tr>
+              <td>Bluetooth LE Devices</td>
+              <td><code>sensor</code></td>
+              <td>Count of connected Bluetooth Low Energy devices + JSON attribute list</td>
+            </tr>
+            <tr>
+              <td rowspan="17"><strong>System, Session &amp; Presence</strong></td>
               <td>Frontmost App</td>
               <td><code>sensor</code></td>
-              <td>Currently focused application (event-driven updates)</td>
+              <td>Currently focused application (immediate NSWorkspace notification)</td>
             </tr>
             <tr>
               <td>User Active</td>
               <td><code>binary_sensor</code></td>
-              <td><code>true</code> when keyboard/mouse active within last 2 minutes</td>
+              <td><code>true</code> when keyboard or mouse active within last 2 minutes</td>
             </tr>
             <tr>
               <td>Idle Seconds</td>
               <td><code>sensor</code></td>
               <td>Seconds since last user hardware input via IOHID</td>
+            </tr>
+            <tr>
+              <td>Last Active Time</td>
+              <td><code>sensor</code></td>
+              <td>Timestamp of last detected user hardware interaction</td>
+            </tr>
+            <tr>
+              <td>Last Boot Time</td>
+              <td><code>sensor</code></td>
+              <td>Moment the macOS system last booted (timestamp via sysctl)</td>
+            </tr>
+            <tr>
+              <td>Session Lock State</td>
+              <td><code>sensor</code></td>
+              <td>Current session lock status (<em>Locked</em> or <em>Unlocked</em>)</td>
+            </tr>
+            <tr>
+              <td>Last System State Change</td>
+              <td><code>sensor</code></td>
+              <td>Most recent power/session event (<em>Suspend</em>, <em>Resume</em>, <em>Lock</em>, <em>Unlock</em>)</td>
+            </tr>
+            <tr>
+              <td>Logged User</td>
+              <td><code>sensor</code></td>
+              <td>Currently active console user via SCDynamicStore</td>
+            </tr>
+            <tr>
+              <td>Logged Users List</td>
+              <td><code>sensor</code></td>
+              <td>JSON array of all active logged-in user accounts via utmpx</td>
+            </tr>
+            <tr>
+              <td>Monitor Power State</td>
+              <td><code>sensor</code></td>
+              <td>Display sleep/wake status (<em>PowerOn</em> vs. <em>DisplaySleep</em>)</td>
+            </tr>
+            <tr>
+              <td>System Accent Color</td>
+              <td><code>sensor</code></td>
+              <td>macOS UI accent color in hex (e.g. <code>#007AFF</code>)</td>
+            </tr>
+            <tr>
+              <td>CPU Clock Speed</td>
+              <td><code>sensor</code></td>
+              <td>Processor core frequency in MHz via sysctl</td>
             </tr>
             <tr>
               <td>CPU Usage (%)</td>
@@ -539,7 +622,7 @@
               <td>RAM usage percentage from Mach virtual memory stats</td>
             </tr>
             <tr>
-              <td>Displays Count</td>
+              <td>Connected Displays</td>
               <td><code>sensor</code></td>
               <td>Total connected internal and external displays</td>
             </tr>
@@ -549,10 +632,15 @@
               <td>Identifier for the primary screen</td>
             </tr>
             <tr>
-              <td rowspan="3"><strong>Network &amp; Wi-Fi</strong></td>
+              <td>StateBeacon Version</td>
+              <td><code>sensor</code></td>
+              <td>Installed StateBeacon release version</td>
+            </tr>
+            <tr>
+              <td rowspan="4"><strong>Network &amp; Location</strong></td>
               <td>Wi-Fi SSID</td>
               <td><code>sensor</code></td>
-              <td>Connected Wi-Fi network name</td>
+              <td>Connected Wi-Fi network name (CoreWLAN)</td>
             </tr>
             <tr>
               <td>Wi-Fi BSSID</td>
@@ -563,6 +651,11 @@
               <td>Connection Type</td>
               <td><code>sensor</code></td>
               <td>Network interface (<em>Wi-Fi</em> or <em>Ethernet</em>)</td>
+            </tr>
+            <tr>
+              <td>Geolocation Coordinates</td>
+              <td><code>sensor</code></td>
+              <td>GPS coordinates (<em>latitude, longitude, altitude</em>) via CoreLocation</td>
             </tr>
             <tr>
               <td rowspan="2"><strong>Focus Mode</strong></td>
@@ -610,7 +703,7 @@
             <tr>
               <td>Mute Audio</td>
               <td><code>switch</code></td>
-              <td>Toggles system output volume mute</td>
+              <td>Toggles system output volume mute on/off</td>
             </tr>
           </tbody>
         </table>
