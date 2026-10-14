@@ -5,7 +5,7 @@
 [![Integration](https://img.shields.io/badge/Home%20Assistant-MQTT%20Discovery-orange.svg)](https://www.home-assistant.io/integrations/mqtt/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Native macOS menu bar agent that sends system telemetry, Focus mode state, and controls to Home Assistant via MQTT auto-discovery.
+Native macOS menu bar agent that sends system telemetry, Focus mode state, and controls to Home Assistant via either **MQTT Discovery (LAN)** or native **Home Assistant Webhook (WAN / Brokerless)**.
 
 Built in pure Swift with AppKit and Darwin APIs, StateBeacon runs as an accessory process without a Dock icon, web views, or WebKit overhead.
 
@@ -13,10 +13,11 @@ Built in pure Swift with AppKit and Darwin APIs, StateBeacon runs as an accessor
 
 ## Key Features
 
+* **Dual Connection Modes**: Choose between high-performance local **MQTT Discovery** (LAN) or native **Home Assistant Webhooks (WAN)** with zero broker required (works through Nabu Casa, Cloudflare Tunnels, and reverse proxies).
 * **Event-Driven Updates**: Uses kernel vnode file watchers and Darwin notifications to dispatch Focus Mode, frontmost app, and display changes to Home Assistant in under 50 ms.
 * **Audio and Camera Detection**: Uses CoreAudio and CoreMediaIO hardware listeners to report active microphone and webcam streaming state.
-* **Remote Control Endpoints**: Provides Home Assistant entities to sleep the Mac (`button`), lock the screen (`button`), or toggle system audio mute (`switch`).
-* **Entity Pruning**: Unchecking sensors in Preferences sends empty discovery payloads, removing unused entities from the Home Assistant registry.
+* **Remote Control Endpoints**: Provides Home Assistant controls to sleep the Mac (`button`), lock the screen (`button`), or toggle system audio mute (`switch`), receiving commands in real time over MQTT or persistent WebSocket.
+* **Entity Pruning**: Unchecking sensors in Preferences prunes or disables them in Home Assistant, keeping your entity registry clean.
 * **Low Resource Usage**: Uses 25 MB to 45 MB of RAM and under 0.1% idle CPU.
 * **Accessory Mode**: Runs exclusively from the menu bar (`.accessory`); dismisses the Dock icon when preferences are closed.
 
@@ -32,7 +33,7 @@ Built in pure Swift with AppKit and Darwin APIs, StateBeacon runs as an accessor
 | **Installer Size** | < 1 MB DMG | Source / manual binary | 120 MB - 180 MB | 60 MB - 95 MB (.msi) |
 | **Memory (RAM)** | 25 MB - 45 MB | Unbounded (Known memory leaks) | 250 MB - 650 MB (WebKit processes) | 75 MB - 140 MB |
 | **Dependencies** | Zero (Pure native APIs) | Requires npm, BetterDisplay CLI | Zero | Zero |
-| **Primary Protocol** | Direct MQTT socket (TCP/TLS) | MQTT socket (YAML config) | HTTP Webhooks API | MQTT Discovery + Local REST |
+| **Primary Protocol** | **Dual**: MQTT (TCP/TLS) + HA Webhook (WAN) | MQTT socket (YAML config) | HTTP Webhooks API | MQTT Discovery + Local REST |
 | **Sensor Depth** | 41 hardware, peripheral & privacy entities | 4 to 7 basic sensors | Fixed mobile sensors | 30+ sensors & controls |
 | **Hardware Privacy** | CoreAudio / CoreMediaIO listeners | Not supported | AVFoundation polling | Windows Privacy Registry |
 | **Focus Mode Latency** | < 50 ms (Kernel vnode) | Not supported | 30s - 120s (Polling) | Windows Focus Assist API |
@@ -127,15 +128,50 @@ Open **Preferences -> Permissions**:
 1. **Full Disk Access**: Click **Open Settings** and enable `StateBeacon` to allow Focus mode tracking.
 2. **Location Services**: Click **Grant Permission** to allow reading local Wi-Fi SSID.
 
-### 3. Configure MQTT Connection
-In **Preferences -> Connection**:
-1. Enter your MQTT Broker host (e.g. `192.168.1.50` or `homeassistant.local`) and Port (`1883` or `8883` for TLS).
-2. Enter your MQTT credentials (if authentication is enabled).
-3. Click **Done**.
+### 3. Choose Connection Mode
+Open **Preferences -> Connection** and select your preferred communication protocol:
 
-Home Assistant will detect the device and entities automatically.
+#### Option A: Home Assistant Webhook (WAN / Brokerless)
+*Works seamlessly from anywhere without port forwarding, extra VPNs, or self-hosted brokers (supports Nabu Casa Cloud, Cloudflare Tunnels, and direct HTTPS).*
+1. Select **Home Assistant Webhook (WAN)**.
+2. Enter your **Home Assistant URL** (e.g. `https://my-ha.ui.nabu.casa` or `https://ha.mydomain.com`).
+3. Generate a **Long-Lived Access Token** in Home Assistant (**Profile -> Long-Lived Access Tokens**) and paste it into the field.
+4. Click **Register & Test Connection**. StateBeacon automatically provisions the device and sensors in Home Assistant and saves your assigned `webhook_id`.
+5. Keep **Enable Remote Commands via WebSocket** checked if you want real-time sleep, lock, and mute controls from Home Assistant over WAN.
+
+#### Option B: MQTT Broker (LAN)
+*Ultra-low latency (<10 ms), lightweight raw TCP/TLS socket over your local home network.*
+1. Select **MQTT Broker (LAN)**.
+2. Enter your MQTT Broker host (e.g. `192.168.1.50` or `homeassistant.local`) and Port (`1883` or `8883` for TLS).
+3. Enter your MQTT credentials (if authentication is enabled).
+4. Click **Done**.
 
 ---
+
+### Remote Controls via WAN / Webhook
+When using the Home Assistant Webhook mode with WebSocket enabled:
+1. **Auto-Provisioned Native Scripts**: StateBeacon automatically provisions native Home Assistant scripts linked directly under the Mac's Device page in Home Assistant (**Related** card):
+   - `script.statebeacon_<device_id>_sleep`: Sleep Mac
+   - `script.statebeacon_<device_id>_lock_screen`: Lock Screen & Display
+   - `script.statebeacon_<device_id>_mute_audio`: Toggle Mute System Audio
+   These scripts can be triggered via standard Home Assistant dashboard button cards, voice assistants, or automations with zero manual YAML setup.
+
+2. **Custom Event Automation**:
+```yaml
+action: event.fire
+data:
+  event_type: statebeacon_command
+  event_data:
+    command: "sleep"        # or lock_screen, mute_audio, unmute
+    device_id: "mac_my_mac" # target identifier
+```
+
+3. **Native Mobile App Notify Command:**
+```yaml
+action: notify.mobile_app_my_mac
+data:
+  message: "command_sleep"  # or command_lock, command_mute, command_unmute
+```
 
 ## Building from Source
 

@@ -6,6 +6,63 @@ final class FlippedView: NSView {
     override var isFlipped: Bool { true }
 }
 
+final class PreferencesWindow: NSWindow {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command) {
+            let chars = event.charactersIgnoringModifiers?.lowercased()
+            switch chars {
+            case "v":
+                if NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: self) {
+                    return true
+                }
+                if let fieldEditor = self.firstResponder as? NSTextView {
+                    fieldEditor.paste(self)
+                    return true
+                }
+            case "c":
+                if NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: self) {
+                    return true
+                }
+                if let fieldEditor = self.firstResponder as? NSTextView {
+                    fieldEditor.copy(self)
+                    return true
+                }
+            case "x":
+                if NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: self) {
+                    return true
+                }
+                if let fieldEditor = self.firstResponder as? NSTextView {
+                    fieldEditor.cut(self)
+                    return true
+                }
+            case "a":
+                if NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: self) {
+                    return true
+                }
+                if let fieldEditor = self.firstResponder as? NSTextView {
+                    fieldEditor.selectAll(self)
+                    return true
+                }
+            case "z":
+                if event.modifierFlags.contains(.shift) {
+                    if let undoManager = self.undoManager, undoManager.canRedo {
+                        undoManager.redo()
+                        return true
+                    }
+                } else {
+                    if let undoManager = self.undoManager, undoManager.canUndo {
+                        undoManager.undo()
+                        return true
+                    }
+                }
+            default:
+                break
+            }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
 @MainActor
 public final class PreferencesWindowController: NSObject, NSWindowDelegate {
     public enum Tab: Int {
@@ -107,11 +164,26 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
     private var permissionsView: NSView?
 
     // Connection Controls
+    private var connectionModeSegment: NSSegmentedControl!
+    private var mqttContainerView: NSView!
+    private var webhookContainerView: NSView!
+
+    // MQTT Fields
     private var hostField: NSTextField!
     private var portField: NSTextField!
     private var tlsCheckbox: NSButton!
     private var usernameField: NSTextField!
     private var passwordField: NSSecureTextField!
+
+    // Webhook Fields
+    private var haURLField: NSTextField!
+    private var haTokenField: NSSecureTextField!
+    private var haWebhookIdField: NSTextField!
+    private var haWebSocketCheckbox: NSButton!
+    private var haTestButton: NSButton!
+    private var haStatusLabel: NSTextField!
+
+    // Shared Device Fields
     private var deviceNameField: NSTextField!
     private var deviceIdField: NSTextField!
     private var intervalField: NSTextField!
@@ -236,7 +308,7 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
 
         let width: CGFloat = 580
         let height: CGFloat = 580
-        let win = NSWindow(
+        let win = PreferencesWindow(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
@@ -341,76 +413,174 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
     private func makeConnectionTabView(width: CGFloat, height: CGFloat) -> NSView {
         let view = NSView(frame: NSRect(x: 0, y: 0, width: width, height: height))
 
-        func makeLabel(text: String, y: CGFloat) -> NSTextField {
+        func makeLabel(text: String, y: CGFloat, width lblWidth: CGFloat = 135) -> NSTextField {
             let label = NSTextField(labelWithString: text)
-            label.frame = NSRect(x: 16, y: y, width: 120, height: 20)
+            label.frame = NSRect(x: 10, y: y, width: lblWidth, height: 20)
             label.alignment = .right
             label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
             label.textColor = .secondaryLabelColor
             return label
         }
 
+        func attachEditContextMenu(to view: NSView) {
+            let menu = NSMenu()
+            menu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+            menu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+            menu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+            menu.addItem(NSMenuItem.separator())
+            menu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+            view.menu = menu
+        }
+
         func makeInput(value: String, y: CGFloat, width fieldWidth: CGFloat, placeholder: String) -> NSTextField {
             let field = NSTextField(string: value)
-            field.frame = NSRect(x: 144, y: y, width: fieldWidth, height: 22)
+            field.frame = NSRect(x: 155, y: y, width: fieldWidth, height: 22)
             field.placeholderString = placeholder
             field.font = NSFont.systemFont(ofSize: 12)
+            attachEditContextMenu(to: field)
             return field
         }
 
-        var curY = height - 32
+        var curY = height - 16
 
-        // Section: MQTT Broker
-        let brokerSection = NSTextField(labelWithString: "MQTT Broker")
-        brokerSection.frame = NSRect(x: 28, y: curY, width: width - 56, height: 18)
+        // Connection Mode Segmented Control at Top
+        connectionModeSegment = NSSegmentedControl(
+            labels: ["MQTT Broker (LAN)", "Home Assistant Webhook (WAN)"],
+            trackingMode: .selectOne,
+            target: self,
+            action: #selector(connectionModeChanged)
+        )
+        connectionModeSegment.frame = NSRect(x: (width - 390) / 2, y: curY - 26, width: 390, height: 26)
+        connectionModeSegment.segmentStyle = .texturedRounded
+        connectionModeSegment.selectedSegment = (config.connectionMode == .mqtt) ? 0 : 1
+        view.addSubview(connectionModeSegment)
+
+        curY -= 40
+
+        // Common container frame for mode-specific panels
+        let modeContainerRect = NSRect(x: 0, y: curY - 175, width: width, height: 175)
+
+        // 1. MQTT Container View
+        mqttContainerView = NSView(frame: modeContainerRect)
+        view.addSubview(mqttContainerView)
+
+        var mqttY: CGFloat = 175 - 18
+        let brokerSection = NSTextField(labelWithString: "MQTT Broker Settings")
+        brokerSection.frame = NSRect(x: 28, y: mqttY, width: width - 56, height: 18)
         brokerSection.font = NSFont.systemFont(ofSize: 12, weight: .bold)
-        view.addSubview(brokerSection)
+        mqttContainerView.addSubview(brokerSection)
 
-        curY -= 28
-        view.addSubview(makeLabel(text: "Host", y: curY))
-        hostField = makeInput(value: config.mqttHost, y: curY, width: width - 176, placeholder: "192.168.1.xxx or homeassistant.local")
-        view.addSubview(hostField)
+        mqttY -= 28
+        mqttContainerView.addSubview(makeLabel(text: "Host", y: mqttY))
+        hostField = makeInput(value: config.mqttHost, y: mqttY, width: width - 185, placeholder: "192.168.1.xxx or homeassistant.local")
+        mqttContainerView.addSubview(hostField)
 
-        curY -= 28
-        view.addSubview(makeLabel(text: "Port", y: curY))
-        portField = makeInput(value: String(config.mqttPort), y: curY, width: 70, placeholder: "1883")
-        view.addSubview(portField)
+        mqttY -= 28
+        mqttContainerView.addSubview(makeLabel(text: "Port", y: mqttY))
+        portField = makeInput(value: String(config.mqttPort), y: mqttY, width: 70, placeholder: "1883")
+        mqttContainerView.addSubview(portField)
 
         tlsCheckbox = NSButton(checkboxWithTitle: "Use TLS / SSL", target: nil, action: nil)
-        tlsCheckbox.frame = NSRect(x: 226, y: curY, width: 120, height: 22)
+        tlsCheckbox.frame = NSRect(x: 236, y: mqttY, width: 120, height: 22)
         tlsCheckbox.font = NSFont.systemFont(ofSize: 12)
         tlsCheckbox.state = config.useTLS ? .on : .off
-        view.addSubview(tlsCheckbox)
+        mqttContainerView.addSubview(tlsCheckbox)
 
-        curY -= 28
-        view.addSubview(makeLabel(text: "Username", y: curY))
-        usernameField = makeInput(value: config.mqttUsername, y: curY, width: width - 176, placeholder: "Optional")
-        view.addSubview(usernameField)
+        mqttY -= 28
+        mqttContainerView.addSubview(makeLabel(text: "Username", y: mqttY))
+        usernameField = makeInput(value: config.mqttUsername, y: mqttY, width: width - 185, placeholder: "Optional")
+        mqttContainerView.addSubview(usernameField)
 
-        curY -= 28
-        view.addSubview(makeLabel(text: "Password", y: curY))
+        mqttY -= 28
+        mqttContainerView.addSubview(makeLabel(text: "Password", y: mqttY))
         passwordField = NSSecureTextField(string: config.mqttPassword)
-        passwordField.frame = NSRect(x: 144, y: curY, width: width - 176, height: 22)
+        passwordField.frame = NSRect(x: 155, y: mqttY, width: width - 185, height: 22)
         passwordField.placeholderString = "Optional"
         passwordField.font = NSFont.systemFont(ofSize: 12)
-        view.addSubview(passwordField)
+        attachEditContextMenu(to: passwordField)
+        mqttContainerView.addSubview(passwordField)
 
-        curY -= 36
+        // 2. Home Assistant Webhook Container View
+        webhookContainerView = NSView(frame: modeContainerRect)
+        view.addSubview(webhookContainerView)
 
-        // Section: Device Info
-        let devSection = NSTextField(labelWithString: "Device")
+        var whY: CGFloat = 175 - 18
+        let whSection = NSTextField(labelWithString: "Home Assistant Webhook (WAN) Settings")
+        whSection.frame = NSRect(x: 28, y: whY, width: width - 56, height: 18)
+        whSection.font = NSFont.systemFont(ofSize: 12, weight: .bold)
+        webhookContainerView.addSubview(whSection)
+
+        whY -= 28
+        webhookContainerView.addSubview(makeLabel(text: "Home Assistant URL", y: whY))
+        haURLField = makeInput(value: config.haURL, y: whY, width: width - 250, placeholder: "https://my-ha.ui.nabu.casa or http://homeassistant.local:8123")
+        webhookContainerView.addSubview(haURLField)
+
+        let pasteUrlBtn = NSButton(title: "Paste", target: self, action: #selector(pasteUrlClicked))
+        pasteUrlBtn.frame = NSRect(x: width - 88, y: whY - 1, width: 58, height: 24)
+        pasteUrlBtn.bezelStyle = .rounded
+        pasteUrlBtn.font = NSFont.systemFont(ofSize: 11)
+        webhookContainerView.addSubview(pasteUrlBtn)
+
+        whY -= 28
+        webhookContainerView.addSubview(makeLabel(text: "Access Token", y: whY))
+        haTokenField = NSSecureTextField(string: config.haToken)
+        haTokenField.frame = NSRect(x: 155, y: whY, width: width - 250, height: 22)
+        haTokenField.placeholderString = "Long-Lived Access Token (from HA Profile)"
+        haTokenField.font = NSFont.systemFont(ofSize: 12)
+        attachEditContextMenu(to: haTokenField)
+        webhookContainerView.addSubview(haTokenField)
+
+        let pasteTokenBtn = NSButton(title: "Paste", target: self, action: #selector(pasteTokenClicked))
+        pasteTokenBtn.frame = NSRect(x: width - 88, y: whY - 1, width: 58, height: 24)
+        pasteTokenBtn.bezelStyle = .rounded
+        pasteTokenBtn.font = NSFont.systemFont(ofSize: 11)
+        webhookContainerView.addSubview(pasteTokenBtn)
+
+        whY -= 28
+        webhookContainerView.addSubview(makeLabel(text: "Webhook ID", y: whY))
+        haWebhookIdField = makeInput(value: config.haWebhookId, y: whY, width: width - 185, placeholder: "Auto-generated on registration, or enter manually")
+        webhookContainerView.addSubview(haWebhookIdField)
+
+        whY -= 26
+        haWebSocketCheckbox = NSButton(checkboxWithTitle: "Enable Remote Commands via WebSocket (Sleep, Lock, Mute)", target: nil, action: nil)
+        haWebSocketCheckbox.frame = NSRect(x: 155, y: whY, width: width - 185, height: 22)
+        haWebSocketCheckbox.font = NSFont.systemFont(ofSize: 11)
+        haWebSocketCheckbox.state = config.haEnableWebSocket ? .on : .off
+        webhookContainerView.addSubview(haWebSocketCheckbox)
+
+        whY -= 30
+        haTestButton = NSButton(title: "Register & Test Connection", target: self, action: #selector(haTestButtonClicked))
+        haTestButton.frame = NSRect(x: 155, y: whY, width: 190, height: 24)
+        haTestButton.bezelStyle = .rounded
+        haTestButton.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        webhookContainerView.addSubview(haTestButton)
+
+        haStatusLabel = NSTextField(labelWithString: config.haWebhookId.isEmpty ? "" : "● Registered")
+        haStatusLabel.frame = NSRect(x: 355, y: whY + 2, width: width - 365, height: 20)
+        haStatusLabel.font = NSFont.systemFont(ofSize: 11)
+        haStatusLabel.textColor = config.haWebhookId.isEmpty ? .secondaryLabelColor : .systemGreen
+        webhookContainerView.addSubview(haStatusLabel)
+
+        // Set visibility based on initial config
+        let isMQTT = (config.connectionMode == .mqtt)
+        mqttContainerView.isHidden = !isMQTT
+        webhookContainerView.isHidden = isMQTT
+
+        // 3. Shared Section: Device Info
+        curY -= 190
+        let devSection = NSTextField(labelWithString: "Device & Telemetry")
         devSection.frame = NSRect(x: 28, y: curY, width: width - 56, height: 18)
         devSection.font = NSFont.systemFont(ofSize: 12, weight: .bold)
         view.addSubview(devSection)
 
         curY -= 28
-        view.addSubview(makeLabel(text: "Name", y: curY))
-        deviceNameField = makeInput(value: config.deviceName, y: curY, width: width - 176, placeholder: "My Mac")
+        view.addSubview(makeLabel(text: "Device Name", y: curY))
+        deviceNameField = makeInput(value: config.deviceName, y: curY, width: width - 185, placeholder: "My Mac")
         view.addSubview(deviceNameField)
 
         curY -= 28
         view.addSubview(makeLabel(text: "Identifier", y: curY))
-        deviceIdField = makeInput(value: config.deviceId, y: curY, width: width - 176, placeholder: "mac_my_mac")
+        deviceIdField = makeInput(value: config.deviceId, y: curY, width: width - 185, placeholder: "mac_my_mac")
         view.addSubview(deviceIdField)
 
         curY -= 28
@@ -419,12 +589,82 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
         view.addSubview(intervalField)
 
         let secLabel = NSTextField(labelWithString: "seconds")
-        secLabel.frame = NSRect(x: 222, y: curY + 2, width: 80, height: 18)
+        secLabel.frame = NSRect(x: 233, y: curY + 2, width: 80, height: 18)
         secLabel.font = NSFont.systemFont(ofSize: 11)
         secLabel.textColor = .secondaryLabelColor
         view.addSubview(secLabel)
 
         return view
+    }
+
+    @objc private func connectionModeChanged() {
+        let isMQTT = (connectionModeSegment.selectedSegment == 0)
+        mqttContainerView.isHidden = !isMQTT
+        webhookContainerView.isHidden = isMQTT
+    }
+
+    @objc private func haTestButtonClicked() {
+        let url = haURLField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let token = haTokenField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let devId = deviceIdField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let devName = deviceNameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !url.isEmpty else {
+            haStatusLabel.stringValue = "✕ Enter Home Assistant URL"
+            haStatusLabel.textColor = .systemRed
+            return
+        }
+
+        guard !token.isEmpty else {
+            haStatusLabel.stringValue = "✕ Enter Access Token"
+            haStatusLabel.textColor = .systemRed
+            return
+        }
+
+        haStatusLabel.stringValue = "Registering with Home Assistant..."
+        haStatusLabel.textColor = .secondaryLabelColor
+        haTestButton.isEnabled = false
+
+        Task {
+            do {
+                let res = try await HAWebhookClient.register(
+                    haURL: url,
+                    token: token,
+                    deviceId: devId.isEmpty ? config.deviceId : devId,
+                    deviceName: devName.isEmpty ? config.deviceName : devName
+                )
+                await MainActor.run {
+                    self.haWebhookIdField.stringValue = res.webhookId
+                    self.config.haWebhookId = res.webhookId
+                    if let cloud = res.cloudhookURL {
+                        self.config.haCloudhookURL = cloud
+                    }
+                    self.haStatusLabel.stringValue = "✓ Registered successfully"
+                    self.haStatusLabel.textColor = .systemGreen
+                    self.haTestButton.isEnabled = true
+                }
+            } catch {
+                await MainActor.run {
+                    self.haStatusLabel.stringValue = "✕ \(error.localizedDescription)"
+                    self.haStatusLabel.textColor = .systemRed
+                    self.haTestButton.isEnabled = true
+                }
+            }
+        }
+    }
+
+    @objc private func pasteUrlClicked() {
+        if let str = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), !str.isEmpty {
+            haURLField.stringValue = str
+        }
+    }
+
+    @objc private func pasteTokenClicked() {
+        if let str = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), !str.isEmpty {
+            haTokenField.stringValue = str
+            haStatusLabel.stringValue = "Token pasted from clipboard"
+            haStatusLabel.textColor = .secondaryLabelColor
+        }
     }
 
     // MARK: - Tab 2: Sensors Checklist
@@ -917,11 +1157,18 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
             let fresh = AppConfig.resetToDefaults()
             self.config = fresh
             if hostField != nil {
+                connectionModeSegment?.selectedSegment = (fresh.connectionMode == .mqtt) ? 0 : 1
+                connectionModeChanged()
                 hostField.stringValue = fresh.mqttHost
                 portField.stringValue = String(fresh.mqttPort)
                 tlsCheckbox.state = fresh.useTLS ? .on : .off
                 usernameField.stringValue = fresh.mqttUsername
                 passwordField.stringValue = fresh.mqttPassword
+                haURLField?.stringValue = fresh.haURL
+                haTokenField?.stringValue = fresh.haToken
+                haWebhookIdField?.stringValue = fresh.haWebhookId
+                haWebSocketCheckbox?.state = fresh.haEnableWebSocket ? .on : .off
+                haStatusLabel?.stringValue = ""
                 deviceNameField.stringValue = fresh.deviceName
                 deviceIdField.stringValue = fresh.deviceId
                 intervalField.stringValue = String(Int(fresh.updateInterval))
@@ -940,6 +1187,10 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
     }
 
     private func saveAndApply() {
+        if connectionModeSegment != nil {
+            config.connectionMode = (connectionModeSegment.selectedSegment == 0) ? .mqtt : .haWebhook
+        }
+
         if hostField != nil {
             config.mqttHost = hostField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
             if let port = UInt16(portField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)), port > 0 {
@@ -948,6 +1199,16 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
             config.useTLS = (tlsCheckbox.state == .on)
             config.mqttUsername = usernameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
             config.mqttPassword = passwordField.stringValue
+        }
+
+        if haURLField != nil {
+            config.haURL = haURLField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            config.haToken = haTokenField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            config.haWebhookId = haWebhookIdField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            config.haEnableWebSocket = (haWebSocketCheckbox.state == .on)
+        }
+
+        if deviceNameField != nil {
             config.deviceName = deviceNameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
             config.deviceId = deviceIdField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
             if let interval = Double(intervalField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)), interval >= 1.0 {

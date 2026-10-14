@@ -38,7 +38,12 @@ cat << 'EOF' > "$DIST_DIR/RELEASE_NOTES.md"
 Native macOS menu bar agent that sends system telemetry, Focus mode state, and controls to Home Assistant via MQTT auto-discovery.
 
 ### Highlights
-- **Full HASS.Agent Sensor Parity**: Expands from 25 to 41 native hardware, peripheral, session, and privacy entities, achieving feature parity with Windows HASS.Agent on macOS.
+- **Dual Connection Modes (WAN + LAN)**:
+  - **Native Home Assistant Webhook (WAN)**: Direct brokerless integration via Home Assistant mobile_app REST + WebSocket API. Works seamlessly over Nabu Casa Cloud, Cloudflare Tunnels, or reverse proxies without port forwarding or MQTT brokers.
+  - **MQTT Discovery (LAN)**: Ultra-low latency (<10 ms) local broker connection with automatic Home Assistant discovery and live retain support.
+  - **Live Switching**: Seamlessly switch between Webhook and MQTT connection modes in Preferences without restarting the app.
+- **Auto-Provisioned Remote Control Scripts**: Automatically creates native Home Assistant script entities (`Sleep Mac`, `Lock Screen`, `Toggle Mute Audio`) linked directly under the Mac's Device page in Home Assistant.
+- **Full HASS.Agent Sensor Parity**: 41 native hardware, peripheral, session, and privacy entities, achieving feature parity with Windows HASS.Agent on macOS.
 - **41 Sensors & Controls**:
   - **System & Activity**: Frontmost application, active window title, user active/idle status, idle seconds, CPU usage %, memory usage %, CPU clock speed (MHz), connected display counts, primary display ID, monitor power state, session lock state, last system state change, logged user, logged users list, last active timestamp, last boot timestamp, system accent color, and StateBeacon version.
   - **Peripherals & Hardware**: Live GPU core utilization percentage, macOS thermal pressure state (Nominal, Fair, Serious, Critical), Bluetooth Classic connected device count and device list attributes, and Bluetooth Low Energy (LE) device count and device list attributes.
@@ -48,7 +53,7 @@ Native macOS menu bar agent that sends system telemetry, Focus mode state, and c
   - **Focus Mode**: Focus mode active state and named profile detection (Work, Personal, Do Not Disturb, etc.).
   - **Remote Controls**: Mute Audio switch, Lock Screen button, and Sleep Mac button.
 - **Instant AX Window Observer**: Detects focused window title changes in real time (<50 ms) using native Accessibility (AX) observer hooks and NSWorkspace workspace activation events.
-- **Performance & Footprint Optimization**: Reduced idle memory footprint to ~14.4MB RAM and <0.1% CPU via conditional polling, plist mtime caching, and static memoization.
+- **Performance & Footprint Optimization**: Reduced idle memory footprint to ~14.4MB RAM and <0.1% CPU via conditional polling, targeted event bus subscriptions, and static memoization.
 - **Comprehensive Permissions Hub**: Dedicated Preferences UI with live status indicators and one-click authorization workflows for Accessibility (AX), Bluetooth, Location Services, and Full Disk Access.
 - **Home Assistant Entity Pruning**: Unchecking sensors in Preferences automatically removes unused entities from the Home Assistant registry via empty retained discovery payloads.
 - **Drag-and-Drop DMG**: Packaged in a visual DMG installer with direct `/Applications` shortcut.

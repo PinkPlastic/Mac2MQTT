@@ -1,11 +1,28 @@
 import Foundation
 
-public struct AppConfig: Codable {
+public enum ConnectionMode: String, Codable, CaseIterable, Sendable {
+    case mqtt = "mqtt"
+    case haWebhook = "webhook"
+}
+
+public struct AppConfig: Codable, Sendable {
+    public var connectionMode: ConnectionMode
+
+    // MQTT Broker Configuration
     public var mqttHost: String
     public var mqttPort: UInt16
     public var mqttUsername: String
     public var mqttPassword: String
     public var useTLS: Bool
+
+    // Home Assistant Native Webhook / WAN Configuration
+    public var haURL: String
+    public var haToken: String
+    public var haWebhookId: String
+    public var haCloudhookURL: String
+    public var haEnableWebSocket: Bool
+
+    // Shared Device & Telemetry Settings
     public var deviceId: String
     public var deviceName: String
     public var updateInterval: Double
@@ -13,26 +30,41 @@ public struct AppConfig: Codable {
     public var disabledSensors: [String]
 
     enum CodingKeys: String, CodingKey {
-        case mqttHost, mqttPort, mqttUsername, mqttPassword, useTLS, deviceId, deviceName, updateInterval, hasCompletedOnboarding, disabledSensors
+        case connectionMode
+        case mqttHost, mqttPort, mqttUsername, mqttPassword, useTLS
+        case haURL, haToken, haWebhookId, haCloudhookURL, haEnableWebSocket
+        case deviceId, deviceName, updateInterval, hasCompletedOnboarding, disabledSensors
     }
 
     public init(
-        mqttHost: String,
-        mqttPort: UInt16,
-        mqttUsername: String,
-        mqttPassword: String,
-        useTLS: Bool,
+        connectionMode: ConnectionMode = .mqtt,
+        mqttHost: String = "homeassistant.local",
+        mqttPort: UInt16 = 1883,
+        mqttUsername: String = "",
+        mqttPassword: String = "",
+        useTLS: Bool = false,
+        haURL: String = "",
+        haToken: String = "",
+        haWebhookId: String = "",
+        haCloudhookURL: String = "",
+        haEnableWebSocket: Bool = true,
         deviceId: String,
         deviceName: String,
-        updateInterval: Double,
+        updateInterval: Double = 15.0,
         hasCompletedOnboarding: Bool = false,
         disabledSensors: [String] = []
     ) {
+        self.connectionMode = connectionMode
         self.mqttHost = mqttHost
         self.mqttPort = mqttPort
         self.mqttUsername = mqttUsername
         self.mqttPassword = mqttPassword
         self.useTLS = useTLS
+        self.haURL = haURL
+        self.haToken = haToken
+        self.haWebhookId = haWebhookId
+        self.haCloudhookURL = haCloudhookURL
+        self.haEnableWebSocket = haEnableWebSocket
         self.deviceId = deviceId
         self.deviceName = deviceName
         self.updateInterval = updateInterval
@@ -42,11 +74,19 @@ public struct AppConfig: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        mqttHost = try container.decode(String.self, forKey: .mqttHost)
-        mqttPort = try container.decode(UInt16.self, forKey: .mqttPort)
-        mqttUsername = try container.decode(String.self, forKey: .mqttUsername)
-        mqttPassword = try container.decode(String.self, forKey: .mqttPassword)
-        useTLS = try container.decode(Bool.self, forKey: .useTLS)
+        connectionMode = try container.decodeIfPresent(ConnectionMode.self, forKey: .connectionMode) ?? .mqtt
+        mqttHost = try container.decodeIfPresent(String.self, forKey: .mqttHost) ?? "homeassistant.local"
+        mqttPort = try container.decodeIfPresent(UInt16.self, forKey: .mqttPort) ?? 1883
+        mqttUsername = try container.decodeIfPresent(String.self, forKey: .mqttUsername) ?? ""
+        mqttPassword = try container.decodeIfPresent(String.self, forKey: .mqttPassword) ?? ""
+        useTLS = try container.decodeIfPresent(Bool.self, forKey: .useTLS) ?? false
+
+        haURL = try container.decodeIfPresent(String.self, forKey: .haURL) ?? ""
+        haToken = try container.decodeIfPresent(String.self, forKey: .haToken) ?? ""
+        haWebhookId = try container.decodeIfPresent(String.self, forKey: .haWebhookId) ?? ""
+        haCloudhookURL = try container.decodeIfPresent(String.self, forKey: .haCloudhookURL) ?? ""
+        haEnableWebSocket = try container.decodeIfPresent(Bool.self, forKey: .haEnableWebSocket) ?? true
+
         deviceId = try container.decode(String.self, forKey: .deviceId)
         deviceName = try container.decode(String.self, forKey: .deviceName)
         updateInterval = try container.decode(Double.self, forKey: .updateInterval)
@@ -76,11 +116,17 @@ public struct AppConfig: Codable {
             .joined(separator: "_")
         
         return AppConfig(
+            connectionMode: .mqtt,
             mqttHost: "homeassistant.local",
             mqttPort: 1883,
             mqttUsername: "",
             mqttPassword: "",
             useTLS: false,
+            haURL: "",
+            haToken: "",
+            haWebhookId: "",
+            haCloudhookURL: "",
+            haEnableWebSocket: true,
             deviceId: sanitizedId.isEmpty ? "my_mac" : sanitizedId,
             deviceName: hostname,
             updateInterval: 15.0,

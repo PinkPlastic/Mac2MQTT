@@ -114,4 +114,56 @@ struct StateBeaconTests {
         config.setSensorEnabled("gpu_load", enabled: false)
         #expect(config.isSensorEnabled("gpu_load") == false)
     }
+
+    @Test("Connection Mode & Webhook Configuration")
+    func testConnectionModeAndWebhookConfig() async throws {
+        var config = AppConfig.defaultConfig
+        #expect(config.connectionMode == .mqtt)
+        #expect(config.haEnableWebSocket == true)
+
+        config.connectionMode = .haWebhook
+        config.haURL = "https://my-home.ui.nabu.casa"
+        config.haToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        config.haWebhookId = "test_webhook_12345"
+
+        let data = try JSONEncoder().encode(config)
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: data)
+
+        #expect(decoded.connectionMode == .haWebhook)
+        #expect(decoded.haURL == "https://my-home.ui.nabu.casa")
+        #expect(decoded.haToken == "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
+        #expect(decoded.haWebhookId == "test_webhook_12345")
+        #expect(decoded.haEnableWebSocket == true)
+    }
+
+    @Test("AppConfig Backwards Compatibility Decoding")
+    func testAppConfigLegacyDecoding() async throws {
+        // Simulates an older config file saved prior to Webhook mode
+        let legacyJson = """
+        {
+            "mqttHost": "192.168.1.50",
+            "mqttPort": 1883,
+            "mqttUsername": "user",
+            "mqttPassword": "password",
+            "useTLS": false,
+            "deviceId": "mac_studio",
+            "deviceName": "Studio Mac",
+            "updateInterval": 10.0,
+            "hasCompletedOnboarding": true,
+            "disabledSensors": ["gpu_load"]
+        }
+        """
+
+        let data = legacyJson.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: data)
+
+        #expect(decoded.connectionMode == .mqtt)
+        #expect(decoded.mqttHost == "192.168.1.50")
+        #expect(decoded.deviceId == "mac_studio")
+        #expect(decoded.haURL == "")
+        #expect(decoded.haToken == "")
+        #expect(decoded.haWebhookId == "")
+        #expect(decoded.haEnableWebSocket == true)
+        #expect(decoded.disabledSensors.contains("gpu_load"))
+    }
 }

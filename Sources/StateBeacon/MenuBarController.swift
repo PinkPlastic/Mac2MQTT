@@ -9,8 +9,9 @@ import notify
 public final class MenuBarController: NSObject {
     private var statusItem: NSStatusItem!
     private var config: AppConfig
-    private var mqttClient: MQTTClient!
-    private var discovery: HADiscovery!
+    private var mqttClient: MQTTClient?
+    private var discovery: HADiscovery?
+    private var webhookClient: HAWebhookClient?
     private let sensorManager = SensorManager()
     private var timer: Timer?
     private var isConnected = false
@@ -106,7 +107,7 @@ public final class MenuBarController: NSObject {
         self.config = config
         super.init()
         setupStatusItem()
-        setupMQTT()
+        setupConnection()
         setupEventSystem()
         startSensorLoop()
         publishSensorState(trigger: "Startup")
@@ -159,7 +160,14 @@ public final class MenuBarController: NSObject {
                     .font: NSFont.menuFont(ofSize: 13)
                 ]
             ))
-            let hostText = config.mqttHost.isEmpty ? "" : " (\(config.mqttHost))"
+            let hostText: String
+            switch config.connectionMode {
+            case .mqtt:
+                hostText = config.mqttHost.isEmpty ? "" : " (MQTT: \(config.mqttHost))"
+            case .haWebhook:
+                let host = URL(string: config.haURL)?.host ?? config.haURL
+                hostText = host.isEmpty ? " (HA Webhook)" : " (HA: \(host))"
+            }
             attr.append(NSAttributedString(
                 string: hostText,
                 attributes: [
@@ -341,6 +349,26 @@ public final class MenuBarController: NSObject {
         statusItem.menu = menu
     }
 
+    private func setupConnection() {
+        isConnected = false
+        statusDebounceItem?.cancel()
+        statusDebounceItem = nil
+        updateStatusDisplay(connected: false)
+
+        mqttClient?.disconnect()
+        mqttClient = nil
+        discovery = nil
+        webhookClient?.disconnect()
+        webhookClient = nil
+
+        switch config.connectionMode {
+        case .mqtt:
+            setupMQTT()
+        case .haWebhook:
+            setupHAWebhook()
+        }
+    }
+
     private func setupMQTT() {
         let mqttCfg = MQTTClient.Config(
             host: config.mqttHost,
@@ -354,22 +382,27 @@ public final class MenuBarController: NSObject {
             willRetain: true
         )
 
-        mqttClient = MQTTClient(config: mqttCfg)
-        discovery = HADiscovery(client: mqttClient, config: config)
+        let client = MQTTClient(config: mqttCfg)
+        let disco = HADiscovery(client: client, config: config)
+        self.mqttClient = client
+        self.discovery = disco
 
-        mqttClient.onConnect = { [weak self] in
+        client.onConnect = { [weak self] in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                let wasConnected = self.isConnected
                 self.isConnected = true
                 self.statusDebounceItem?.cancel()
                 self.statusDebounceItem = nil
                 self.updateStatusDisplay(connected: true)
-                self.discovery.publishDiscoveryAndSubscribe()
-                self.publishSensorState(trigger: "Initial Connect")
+                if !wasConnected {
+                    self.discovery?.publishDiscoveryAndSubscribe()
+                    self.publishSensorState(trigger: "Initial Connect")
+                }
             }
         }
 
-        mqttClient.onDisconnect = { [weak self] error in
+        client.onDisconnect = { [weak self] error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 self.isConnected = false
@@ -383,18 +416,95 @@ public final class MenuBarController: NSObject {
             }
         }
 
-        mqttClient.onMessage = { [weak self] topic, data in
+        client.onMessage = { [weak self] topic, data in
             guard let message = String(data: data, encoding: .utf8) else { return }
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                self.discovery.handleCommand(topic: topic, message: message)
+                self.discovery?.handleCommand(topic: topic, message: message)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     self.publishSensorState(trigger: "Command Response")
                 }
             }
         }
 
-        mqttClient.connect()
+        client.connect()
+    }
+
+    private func setupHAWebhook() {
+        let client = HAWebhookClient(config: config)
+        self.webhookClient = client
+
+        client.onConnect = { [weak self] in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                let wasConnected = self.isConnected
+                self.isConnected = true
+                self.statusDebounceItem?.cancel()
+                self.statusDebounceItem = nil
+                self.updateStatusDisplay(connected: true)
+                if !wasConnected {
+                    self.publishSensorState(trigger: "Initial Connect")
+                }
+            }
+        }
+
+        client.onDisconnect = { [weak self] error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.isConnected = false
+                self.statusDebounceItem?.cancel()
+                let item = DispatchWorkItem { [weak self] in
+                    guard let self = self, !self.isConnected else { return }
+                    self.updateStatusDisplay(connected: false, error: error)
+                }
+                self.statusDebounceItem = item
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: item)
+            }
+        }
+
+        client.onCommand = { [weak self] command, param in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.executeRemoteCommand(command, parameter: param)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self.publishSensorState(trigger: "Command Response")
+                }
+            }
+        }
+
+        client.connect()
+    }
+
+    public func executeRemoteCommand(_ command: String, parameter: String? = nil) {
+        let lower = command.lowercased()
+        if lower == "sleep" || lower.hasSuffix("/sleep") {
+            guard config.isSensorEnabled("sleep") else { return }
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
+            process.arguments = ["sleepnow"]
+            try? process.run()
+        } else if lower == "lock_screen" || lower == "lock" || lower.hasSuffix("/lock_screen") {
+            guard config.isSensorEnabled("lock_screen") else { return }
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
+            process.arguments = ["displaysleepnow"]
+            try? process.run()
+        } else if lower == "mute_audio" || lower == "mute" || lower == "unmute" || lower.hasSuffix("/mute_audio") {
+            guard config.isSensorEnabled("mute_audio") else { return }
+            let shouldMute: Bool
+            if lower == "unmute" {
+                shouldMute = false
+            } else if let param = parameter {
+                shouldMute = (param.uppercased() == "ON" || param == "true" || param == "1")
+            } else {
+                shouldMute = true
+            }
+            let script = "set volume output muted \(shouldMute)"
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            process.arguments = ["-e", script]
+            try? process.run()
+        }
     }
 
     // MARK: - Instant Event System (Zero-Latency Updates)
@@ -1100,7 +1210,12 @@ public final class MenuBarController: NSObject {
         headerControls.isHidden = subItemMuteAction.isHidden && subItemLockAction.isHidden && subItemSleepAction.isHidden
 
         if isConnected {
-            discovery.publishState(snapshot: snapshot)
+            switch config.connectionMode {
+            case .mqtt:
+                discovery?.publishState(snapshot: snapshot)
+            case .haWebhook:
+                webhookClient?.publishState(snapshot: snapshot)
+            }
         }
     }
 
@@ -1149,9 +1264,7 @@ public final class MenuBarController: NSObject {
                 onSave: { [weak self] newConfig in
                     guard let self = self else { return }
                     self.config = newConfig
-                    self.publishSensorState(trigger: "Preferences Saved")
-                    self.mqttClient.disconnect()
-                    self.setupMQTT()
+                    self.setupConnection()
                     self.startSensorLoop()
                 }
             )
@@ -1194,7 +1307,8 @@ public final class MenuBarController: NSObject {
     }
 
     @objc private func quitClicked() {
-        mqttClient.disconnect()
+        mqttClient?.disconnect()
+        webhookClient?.disconnect()
         NSApplication.shared.terminate(nil)
     }
 }
