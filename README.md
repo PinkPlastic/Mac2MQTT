@@ -33,7 +33,7 @@ Built in pure Swift with AppKit and Darwin APIs, StateBeacon runs as an accessor
 | **Memory (RAM)** | 25 MB - 45 MB | Unbounded (Known memory leaks) | 250 MB - 650 MB (WebKit processes) | 75 MB - 140 MB |
 | **Dependencies** | Zero (Pure native APIs) | Requires npm, BetterDisplay CLI | Zero | Zero |
 | **Primary Protocol** | Direct MQTT socket (TCP/TLS) | MQTT socket (YAML config) | HTTP Webhooks API | MQTT Discovery + Local REST |
-| **Sensor Depth** | 25 hardware & privacy entities | 4 to 7 basic sensors | Fixed mobile sensors | 30+ sensors & controls |
+| **Sensor Depth** | 41 hardware, peripheral & privacy entities | 4 to 7 basic sensors | Fixed mobile sensors | 30+ sensors & controls |
 | **Hardware Privacy** | CoreAudio / CoreMediaIO listeners | Not supported | AVFoundation polling | Windows Privacy Registry |
 | **Focus Mode Latency** | < 50 ms (Kernel vnode) | Not supported | 30s - 120s (Polling) | Windows Focus Assist API |
 | **Frontmost App** | Immediate (NSWorkspace event) | Not supported | Delayed polling | Immediate hook |
@@ -46,34 +46,53 @@ Built in pure Swift with AppKit and Darwin APIs, StateBeacon runs as an accessor
 
 All entities register under a single consolidated Device in Home Assistant (**Settings -> Devices & Services -> MQTT**):
 
-### Audio and Camera
+### Audio and Video
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| **Microphone In-Use** | `binary_sensor` | Active microphone stream detection |
-| **Active Microphone Name** | `sensor` | Connected input device (e.g. *MacBook Pro Microphone*, *Blue Yeti*) |
+| **Audio Input** | `sensor` | Connected microphone name & streaming in-use attribute |
+| **Audio Output** | `sensor` | Connected audio output device, volume & playback status |
+| **Master Volume** | `sensor` | Default output volume percentage (0–100%) |
+| **Audio Muted** | `binary_sensor` | Indicates whether macOS master output volume is muted |
 | **Camera In-Use** | `binary_sensor` | Active camera / webcam stream detection |
 | **Active Camera Name** | `sensor` | Connected camera name (e.g. *FaceTime HD Camera*, *Logitech Brio*) |
-| **Audio Output In-Use** | `binary_sensor` | Active audio playback detection |
-| **Active Audio Output Name** | `sensor` | Connected output device (e.g. *AirPods Pro*, *External Headphones*) |
 
-### System and Presence
+### Peripherals and Hardware (Phase 2 Parity)
+| Entity | Type | Description |
+| :--- | :--- | :--- |
+| **Active Window Title** | `sensor` | Focused application window title |
+| **GPU Load** | `sensor` | Live GPU core utilization percentage (%) |
+| **Thermal State** | `sensor` | macOS thermal pressure (*Nominal*, *Fair*, *Serious*, *Critical*) |
+| **Bluetooth Devices** | `sensor` | Count of connected Bluetooth Classic devices + JSON attributes |
+| **Bluetooth LE Devices** | `sensor` | Count of connected Bluetooth Low Energy devices + JSON attributes |
+
+### System, Session and Presence
 | Entity | Type | Description |
 | :--- | :--- | :--- |
 | **Frontmost App** | `sensor` | Currently focused application name |
 | **User Active** | `binary_sensor` | `true` if mouse or keyboard active within the last 2 minutes |
 | **Idle Seconds** | `sensor` | Seconds since last user hardware input |
+| **Last Active** | `sensor` | Timestamp of last user hardware interaction |
+| **Last Boot** | `sensor` | Timestamp when the macOS system last booted |
+| **Session State** | `sensor` | Current session lock status (*Locked* or *Unlocked*) |
+| **Last System State Change** | `sensor` | Most recent system event (*Suspend*, *Resume*, *SessionLock*, *SessionUnlock*) |
+| **Logged User** | `sensor` | Currently active console username |
+| **Logged Users** | `sensor` | JSON list of all active logged-in user accounts |
+| **Monitor Power State** | `sensor` | Display sleep/wake status (*PowerOn* vs. *DisplaySleep*) |
+| **Accent Color** | `sensor` | System UI accent color hex code (e.g. `#007AFF`) |
+| **CPU Clock Speed** | `sensor` | Processor clock frequency in MHz |
 | **CPU Usage** | `sensor` | Processor load percentage (%) |
 | **Memory Usage** | `sensor` | System RAM usage percentage (%) |
 | **Connected Displays** | `sensor` | Count of active external and built-in screens |
 | **Primary Display ID** | `sensor` | Display identifier for the main monitor |
 | **App Version** | `sensor` | Installed StateBeacon version |
 
-### Network and Wi-Fi
+### Network, Location and Wi-Fi
 | Entity | Type | Description |
 | :--- | :--- | :--- |
 | **Wi-Fi SSID** | `sensor` | Connected Wi-Fi network name |
 | **Wi-Fi BSSID** | `sensor` | Access Point MAC address |
 | **Connection Type** | `sensor` | Network interface type (*Wi-Fi* or *Ethernet*) |
+| **Geo Location** | `sensor` | Current GPS coordinates (*latitude,longitude,altitude*) |
 
 ### Focus Mode (Do Not Disturb)
 | Entity | Type | Description |

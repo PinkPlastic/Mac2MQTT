@@ -1,5 +1,6 @@
 import AppKit
 import CoreLocation
+import CoreBluetooth
 
 final class FlippedView: NSView {
     override var isFlipped: Bool { true }
@@ -17,6 +18,8 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
         case none
         case fullDiskAccess
         case location
+        case bluetooth
+        case accessibility
     }
 
     public struct SensorDefinition: Sendable {
@@ -38,18 +41,35 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
     nonisolated public static let availableSensors: [SensorDefinition] = [
         // System & Activity
         SensorDefinition(id: "frontmost_app", name: "Frontmost Application", category: "System & Activity", desc: "Current foreground app name"),
-        SensorDefinition(id: "active", name: "User Active / Idle", category: "System & Activity", desc: "User presence and idle detection"),
+        SensorDefinition(id: "active_window", name: "Active Window Title", category: "System & Activity", desc: "Title of the currently focused application window", requiredPermission: .accessibility),
+        SensorDefinition(id: "active", name: "User Active / Idle", category: "System & Activity", desc: "User presence detection (Active / Idle)"),
+        SensorDefinition(id: "idle_time", name: "User Idle Time (s)", category: "System & Activity", desc: "Seconds since last keyboard or mouse interaction"),
         SensorDefinition(id: "cpu_usage", name: "CPU Usage (%)", category: "System & Activity", desc: "Overall CPU load percentage"),
         SensorDefinition(id: "memory_usage", name: "Memory Usage (%)", category: "System & Activity", desc: "RAM usage percentage"),
+        SensorDefinition(id: "current_clock_speed", name: "CPU Clock Speed (MHz)", category: "System & Activity", desc: "Processor core frequency in MHz"),
         SensorDefinition(id: "displays", name: "Displays Count", category: "System & Activity", desc: "Total connected displays"),
         SensorDefinition(id: "primary_display_id", name: "Primary Display ID", category: "System & Activity", desc: "Main display identifier"),
+        SensorDefinition(id: "monitor_power_state", name: "Monitor Power State", category: "System & Activity", desc: "Display sleep/wake status: PowerOn or DisplaySleep"),
+        SensorDefinition(id: "session_state", name: "Session Lock State", category: "System & Activity", desc: "Session lock state: Locked or Unlocked"),
+        SensorDefinition(id: "last_system_state_change", name: "Last System State Change", category: "System & Activity", desc: "Last power/session event (Suspend, Resume, Lock, Unlock)"),
+        SensorDefinition(id: "logged_user", name: "Logged User", category: "System & Activity", desc: "Currently active console user"),
+        SensorDefinition(id: "logged_users", name: "Logged Users List", category: "System & Activity", desc: "JSON array of all logged-in user accounts"),
+        SensorDefinition(id: "last_active", name: "Last Active Time", category: "System & Activity", desc: "Timestamp of last detected user interaction"),
+        SensorDefinition(id: "last_boot", name: "Last Boot Time", category: "System & Activity", desc: "Moment the system last booted (timestamp)"),
+        SensorDefinition(id: "accent_color", name: "System Accent Color", category: "System & Activity", desc: "macOS UI accent color in hex (#RRGGBB)"),
         SensorDefinition(id: "app_version", name: "StateBeacon Version", category: "System & Activity", desc: "Client app release version"),
 
-        // Audio & Camera
-        SensorDefinition(id: "audio_input_in_use", name: "Microphone In-Use", category: "Audio & Video", desc: "Detects active microphone usage"),
-        SensorDefinition(id: "active_audio_input", name: "Active Microphone Name", category: "Audio & Video", desc: "Default input audio device name"),
-        SensorDefinition(id: "audio_output_in_use", name: "Audio Output Playing", category: "Audio & Video", desc: "Detects active audio output playback"),
-        SensorDefinition(id: "active_audio_output", name: "Active Audio Output Name", category: "Audio & Video", desc: "Default output audio device name"),
+        // Peripherals & Hardware
+        SensorDefinition(id: "gpu_load", name: "GPU Usage (%)", category: "Peripherals & Hardware", desc: "Live GPU core utilization percentage"),
+        SensorDefinition(id: "internal_device", name: "Thermal Pressure State", category: "Peripherals & Hardware", desc: "System thermal pressure: Nominal, Fair, Serious, Critical"),
+        SensorDefinition(id: "bluetooth_devices", name: "Bluetooth Devices", category: "Peripherals & Hardware", desc: "Count of paired and connected Bluetooth Classic devices", requiredPermission: .bluetooth),
+        SensorDefinition(id: "bluetooth_le_devices", name: "Bluetooth LE Devices", category: "Peripherals & Hardware", desc: "Count of connected Bluetooth Low Energy devices", requiredPermission: .bluetooth),
+
+        // Audio & Video
+        SensorDefinition(id: "audio_input", name: "Audio Input (Microphone)", category: "Audio & Video", desc: "Connected microphone name and streaming in-use state"),
+        SensorDefinition(id: "audio_output", name: "Audio Output", category: "Audio & Video", desc: "Connected audio output device and playback state"),
+        SensorDefinition(id: "current_volume", name: "Master Audio Volume (%)", category: "Audio & Video", desc: "Default output audio volume level"),
+        SensorDefinition(id: "audio_muted", name: "Audio Muted", category: "Audio & Video", desc: "Indicates whether macOS system output audio is currently muted"),
         SensorDefinition(id: "camera_in_use", name: "Camera In-Use", category: "Audio & Video", desc: "Detects active webcam usage"),
         SensorDefinition(id: "active_camera", name: "Active Camera Name", category: "Audio & Video", desc: "Name of the active webcam device"),
 
@@ -63,6 +83,7 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
         SensorDefinition(id: "wifi_ssid", name: "Wi-Fi SSID", category: "Network", desc: "Connected Wi-Fi network name", requiredPermission: .location),
         SensorDefinition(id: "bssid", name: "Wi-Fi BSSID", category: "Network", desc: "Access Point MAC address", requiredPermission: .location),
         SensorDefinition(id: "connection_type", name: "Connection Type", category: "Network", desc: "Wi-Fi or Ethernet"),
+        SensorDefinition(id: "geo_location", name: "Geolocation Coordinates", category: "Network", desc: "GPS coordinates (latitude, longitude, altitude)", requiredPermission: .location),
 
         // Focus Mode
         SensorDefinition(id: "focus", name: "Focus Mode Active", category: "Focus Mode", desc: "Indicates whether Focus or Do Not Disturb is active", requiredPermission: .fullDiskAccess),
@@ -104,8 +125,13 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
     private var fdaActionButton: NSButton!
     private var locBadgeLabel: NSTextField!
     private var locActionButton: NSButton!
+    private var btBadgeLabel: NSTextField!
+    private var btActionButton: NSButton!
+    private var axBadgeLabel: NSTextField!
+    private var axActionButton: NSButton!
     private var liveTimer: Timer?
     private let locationManager = CLLocationManager()
+    private var bluetoothManager: CBCentralManager?
 
     public init(config: AppConfig, onSave: @escaping (AppConfig) -> Void) {
         self.config = config
@@ -132,6 +158,15 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
         return CLLocationManager().authorizationStatus
     }
 
+    nonisolated public static func checkBluetoothPermission() -> CBManagerAuthorization {
+        return CBManager.authorization
+    }
+
+    nonisolated public static func checkAccessibilityPermission() -> Bool {
+        let options = ["AXTrustedCheckOptionPrompt": false] as CFDictionary
+        return AXIsProcessTrustedWithOptions(options)
+    }
+
     nonisolated public static func isPermissionGranted(for permission: RequiredPermission) -> Bool {
         switch permission {
         case .none:
@@ -140,6 +175,10 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
             return checkFullDiskAccess()
         case .location:
             return checkLocationPermission() == .authorizedAlways
+        case .bluetooth:
+            return checkBluetoothPermission() == .allowedAlways
+        case .accessibility:
+            return checkAccessibilityPermission()
         }
     }
 
@@ -150,18 +189,35 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
 
     nonisolated public static func isAllPermissionsGranted() -> Bool {
         let fda = checkFullDiskAccess()
-        let loc = checkLocationPermission()
-        return fda && (loc == .authorizedAlways)
+        let loc = checkLocationPermission() == .authorizedAlways
+        let bt = checkBluetoothPermission() == .allowedAlways
+        let ax = checkAccessibilityPermission()
+        return fda && loc && bt && ax
     }
 
     public static func relaunchApp() {
-        let bundlePath = Bundle.main.bundleURL.path
-        let script = "sleep 0.4 && /usr/bin/open \"\(bundlePath)\""
+        let bundleUrl = Bundle.main.bundleURL
+        let appPath: String
+        if bundleUrl.pathExtension == "app" {
+            appPath = bundleUrl.path
+        } else if FileManager.default.fileExists(atPath: "/Applications/StateBeacon.app") {
+            appPath = "/Applications/StateBeacon.app"
+        } else {
+            appPath = bundleUrl.path
+        }
+
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let script = "while /bin/kill -0 \(pid) 2>/dev/null; do /bin/sleep 0.1; done; /bin/sleep 0.2; /usr/bin/open -n \"\(appPath)\""
+        let command = "nohup /bin/sh -c '\(script)' >/dev/null 2>&1 &"
+
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-c", script]
+        process.arguments = ["-c", command]
         try? process.run()
+        process.waitUntilExit()
+
         NSApp.terminate(nil)
+        exit(0)
     }
 
     // MARK: - Window Presentation
@@ -178,8 +234,8 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
             return
         }
 
-        let width: CGFloat = 550
-        let height: CGFloat = 520
+        let width: CGFloat = 580
+        let height: CGFloat = 580
         let win = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),
             styleMask: [.titled, .closable, .miniaturizable],
@@ -378,7 +434,7 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
 
         // Top Bar: summary count & quick toggles
         sensorSummaryLabel = NSTextField(labelWithString: "")
-        sensorSummaryLabel.frame = NSRect(x: 24, y: 10, width: 220, height: 18)
+        sensorSummaryLabel.frame = NSRect(x: 24, y: 10, width: 260, height: 18)
         sensorSummaryLabel.font = NSFont.systemFont(ofSize: 11, weight: .medium)
         container.addSubview(sensorSummaryLabel)
 
@@ -396,13 +452,26 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
 
         sensorCheckboxes.removeAll()
 
-        // Two Column Organization (No Scroll Needed!)
-        let col1Categories = ["System & Activity", "Focus Mode", "Remote Controls"]
-        let col2Categories = ["Audio & Video", "Battery & Power", "Network"]
+        // Two Column Organization inside a ScrollView
+        let col1Categories = ["System & Activity", "Peripherals & Hardware"]
+        let col2Categories = ["Audio & Video", "Battery & Power", "Network", "Focus Mode", "Remote Controls"]
 
         let colWidth: CGFloat = (width - 64) / 2
-        let col1X: CGFloat = 24
+        let col1X: CGFloat = 20
         let col2X: CGFloat = col1X + colWidth + 16
+
+        func columnHeight(for categories: [String]) -> CGFloat {
+            var h: CGFloat = 10
+            for cat in categories {
+                let catSensors = PreferencesWindowController.availableSensors.filter { $0.category == cat }
+                guard !catSensors.isEmpty else { continue }
+                h += 21 + CGFloat(catSensors.count) * 20 + 12
+            }
+            return h
+        }
+
+        let docHeight = max(height - 42, max(columnHeight(for: col1Categories), columnHeight(for: col2Categories)) + 16)
+        let docView = FlippedView(frame: NSRect(x: 0, y: 0, width: width - 16, height: docHeight))
 
         func renderColumn(categories: [String], startX: CGFloat, startY: CGFloat) {
             var curY = startY
@@ -414,7 +483,7 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
                 catLabel.frame = NSRect(x: startX, y: curY, width: colWidth, height: 18)
                 catLabel.font = NSFont.systemFont(ofSize: 11, weight: .bold)
                 catLabel.textColor = .secondaryLabelColor
-                container.addSubview(catLabel)
+                docView.addSubview(catLabel)
                 curY += 21
 
                 for sensor in catSensors {
@@ -427,22 +496,37 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
                     cb.isEnabled = hasPermission
 
                     if !hasPermission {
-                        let permName = (sensor.requiredPermission == .fullDiskAccess) ? "Full Disk Access" : "Location Services"
+                        let permName: String
+                        switch sensor.requiredPermission {
+                        case .fullDiskAccess: permName = "Full Disk Access"
+                        case .location: permName = "Location Services"
+                        case .bluetooth: permName = "Bluetooth"
+                        case .accessibility: permName = "Accessibility"
+                        case .none: permName = ""
+                        }
                         cb.toolTip = "\(sensor.desc)\n⚠️ Inactive: Requires \(permName). Grant permission in Permissions tab to enable."
                     } else {
                         cb.toolTip = sensor.desc
                     }
 
                     sensorCheckboxes[sensor.id] = cb
-                    container.addSubview(cb)
+                    docView.addSubview(cb)
                     curY += 20
                 }
-                curY += 8
+                curY += 10
             }
         }
 
-        renderColumn(categories: col1Categories, startX: col1X, startY: 36)
-        renderColumn(categories: col2Categories, startX: col2X, startY: 36)
+        renderColumn(categories: col1Categories, startX: col1X, startY: 8)
+        renderColumn(categories: col2Categories, startX: col2X, startY: 8)
+
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 36, width: width, height: height - 36))
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.drawsBackground = false
+        scrollView.documentView = docView
+        container.addSubview(scrollView)
 
         updateSensorSummary()
         return container
@@ -469,7 +553,14 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
             if cb.isEnabled != hasPermission {
                 cb.isEnabled = hasPermission
                 if !hasPermission {
-                    let permName = (def.requiredPermission == .fullDiskAccess) ? "Full Disk Access" : "Location Services"
+                    let permName: String
+                    switch def.requiredPermission {
+                    case .fullDiskAccess: permName = "Full Disk Access"
+                    case .location: permName = "Location Services"
+                    case .bluetooth: permName = "Bluetooth"
+                    case .accessibility: permName = "Accessibility"
+                    case .none: permName = ""
+                    }
                     cb.toolTip = "\(def.desc)\n⚠️ Inactive: Requires \(permName). Grant permission in Permissions tab to enable."
                 } else {
                     cb.toolTip = def.desc
@@ -589,9 +680,9 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
         curY -= 84
         let (box2, badge2, btn2) = makeCard(
             y: curY,
-            symbol: "wifi",
-            title: "Wi-Fi Details (Location Services)",
-            subtitle: "Required by macOS to read network SSID & BSSID.",
+            symbol: "location.fill",
+            title: "Wi-Fi & Geolocation (Location Services)",
+            subtitle: "Required by macOS for Wi-Fi SSID/BSSID and GPS coordinates.",
             actionTitle: "Grant Permission",
             action: #selector(requestLocationOrOpenSettings)
         )
@@ -599,8 +690,36 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
         locActionButton = btn2
         view.addSubview(box2)
 
-        // 3. Relaunch Helper Card
-        curY -= 88
+        // 3. Bluetooth Peripherals Card
+        curY -= 82
+        let (box3, badge3, btn3) = makeCard(
+            y: curY,
+            symbol: "antenna.radiowaves.left.and.right",
+            title: "Bluetooth Peripherals (Bluetooth)",
+            subtitle: "Monitors connected Bluetooth Classic & LE accessories.",
+            actionTitle: "Grant Permission",
+            action: #selector(requestBluetoothOrOpenSettings)
+        )
+        btBadgeLabel = badge3
+        btActionButton = btn3
+        view.addSubview(box3)
+
+        // 4. Accessibility (Active Window) Card
+        curY -= 82
+        let (box4, badge4, btn4) = makeCard(
+            y: curY,
+            symbol: "macwindow.on.rectangle",
+            title: "Active Window (Accessibility)",
+            subtitle: "Required by macOS to detect active window titles across other apps.",
+            actionTitle: "Grant Permission",
+            action: #selector(requestAccessibilityOrOpenSettings)
+        )
+        axBadgeLabel = badge4
+        axActionButton = btn4
+        view.addSubview(box4)
+
+        // 5. Relaunch Helper Card
+        curY -= 84
         let relaunchBox = NSBox(frame: NSRect(x: 20, y: curY, width: width - 40, height: 76))
         relaunchBox.boxType = .custom
         relaunchBox.borderWidth = 1
@@ -639,7 +758,7 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
 
     public func refreshPermissionsUI() {
         updateSensorsPermissionState()
-        guard fdaBadgeLabel != nil, locBadgeLabel != nil else { return }
+        guard fdaBadgeLabel != nil, locBadgeLabel != nil, btBadgeLabel != nil, axBadgeLabel != nil else { return }
 
         // FDA
         let fda = PreferencesWindowController.checkFullDiskAccess()
@@ -672,6 +791,38 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
             locBadgeLabel.stringValue = "○ Unknown"
             locBadgeLabel.textColor = .secondaryLabelColor
         }
+
+        // Bluetooth
+        let bt = PreferencesWindowController.checkBluetoothPermission()
+        switch bt {
+        case .allowedAlways:
+            btBadgeLabel.stringValue = "✓ Granted"
+            btBadgeLabel.textColor = .systemGreen
+            btActionButton.title = "Settings..."
+        case .notDetermined:
+            btBadgeLabel.stringValue = "⚠ Not Requested"
+            btBadgeLabel.textColor = .systemOrange
+            btActionButton.title = "Request Access"
+        case .denied, .restricted:
+            btBadgeLabel.stringValue = "⚠ Denied"
+            btBadgeLabel.textColor = .systemRed
+            btActionButton.title = "Open Settings"
+        @unknown default:
+            btBadgeLabel.stringValue = "○ Unknown"
+            btBadgeLabel.textColor = .secondaryLabelColor
+        }
+
+        // Accessibility
+        let ax = PreferencesWindowController.checkAccessibilityPermission()
+        if ax {
+            axBadgeLabel.stringValue = "✓ Granted"
+            axBadgeLabel.textColor = .systemGreen
+            axActionButton.title = "Settings..."
+        } else {
+            axBadgeLabel.stringValue = "⚠ Not Granted"
+            axBadgeLabel.textColor = .systemOrange
+            axActionButton.title = "Grant Permission"
+        }
     }
 
     private func startLivePolling() {
@@ -681,11 +832,25 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
                 self?.refreshPermissionsUI()
             }
         }
+
+        NotificationCenter.default.removeObserver(self, name: NSApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidBecomeActive), name: NSApplication.didBecomeActiveNotification, object: nil)
+
+        NotificationCenter.default.removeObserver(self, name: NSWindow.didBecomeKeyNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleAppDidBecomeActive), name: NSWindow.didBecomeKeyNotification, object: nil)
     }
 
     private func stopLivePolling() {
         liveTimer?.invalidate()
         liveTimer = nil
+        NotificationCenter.default.removeObserver(self, name: NSApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSWindow.didBecomeKeyNotification, object: nil)
+    }
+
+    @objc private func handleAppDidBecomeActive() {
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshPermissionsUI()
+        }
     }
 
     @objc private func openFDASettings() {
@@ -705,7 +870,37 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
         }
     }
 
+    @objc private func requestBluetoothOrOpenSettings() {
+        let bt = PreferencesWindowController.checkBluetoothPermission()
+        if bt == .notDetermined {
+            if bluetoothManager == nil {
+                bluetoothManager = CBCentralManager(delegate: self, queue: .main)
+            }
+        } else {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth") {
+                NSWorkspace.shared.open(url)
+            }
+        }
+    }
+
+    @objc private func requestAccessibilityOrOpenSettings() {
+        let ax = PreferencesWindowController.checkAccessibilityPermission()
+        if !ax {
+            let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+            }
+        } else {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+            }
+        }
+    }
+
     @objc private func relaunchClicked() {
+        saveAndApply()
+        stopLivePolling()
         PreferencesWindowController.relaunchApp()
     }
 
@@ -745,8 +940,6 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
     }
 
     private func saveAndApply() {
-        var changed = false
-
         if hostField != nil {
             config.mqttHost = hostField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
             if let port = UInt16(portField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)), port > 0 {
@@ -760,7 +953,6 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
             if let interval = Double(intervalField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)), interval >= 1.0 {
                 config.updateInterval = interval
             }
-            changed = true
         }
 
         // Save sensor checklist
@@ -772,15 +964,11 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
                 }
             }
             config.disabledSensors = disabled
-            changed = true
         }
 
         config.hasCompletedOnboarding = true
-
-        if changed {
-            config.save()
-            onSave(config)
-        }
+        config.save()
+        onSave(config)
     }
 
     public func windowWillClose(_ notification: Notification) {
@@ -814,5 +1002,11 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
                 NSApp.setActivationPolicy(.accessory)
             }
         }
+    }
+}
+
+extension PreferencesWindowController: @preconcurrency CBCentralManagerDelegate {
+    public func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        self.refreshPermissionsUI()
     }
 }

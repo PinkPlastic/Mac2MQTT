@@ -1,10 +1,15 @@
 import Foundation
 import AppKit
 import CoreAudio
+import AudioToolbox
 import CoreMediaIO
 import IOKit.ps
 import CoreLocation
 import CoreWLAN
+import Darwin
+import IOBluetooth
+import CoreBluetooth
+import ApplicationServices
 
 public struct SensorSnapshot: Sendable {
     public var frontmostApp: String
@@ -32,13 +37,65 @@ public struct SensorSnapshot: Sendable {
     public var isAudioMuted: Bool
     public var lastUpdateTrigger: String
     public var appVersion: String
+
+    // Phase 1 HASS.Agent Parity Sensors
+    public var lastBoot: String
+    public var lastActive: String
+    public var sessionState: String
+    public var lastSystemStateChange: String
+    public var loggedUser: String
+    public var loggedUsers: String
+    public var currentVolume: Int
+    public var accentColor: String
+    public var monitorPowerState: String
+    public var currentClockSpeed: Int
+
+    // Phase 2 HASS.Agent Parity Sensors
+    public var bluetoothDevicesCount: Int
+    public var bluetoothDevicesJson: String
+    public var bluetoothLeDevicesCount: Int
+    public var bluetoothLeDevicesJson: String
+    public var thermalState: String
+    public var gpuUsagePercent: Double
+    public var geoLocation: String
+    public var activeWindowTitle: String
 }
 
-public final class SensorManager: NSObject, @unchecked Sendable {
+public final class SensorManager: NSObject, CLLocationManagerDelegate, @unchecked Sendable {
     private var prevCpuInfo: host_cpu_load_info?
+    private let locationManager = CLLocationManager()
+    private var cachedLocation: CLLocation?
+
+    // Live session & system state trackers
+    public var lastSystemStateChange: String = "Startup"
+    public var monitorPowerState: String = "PowerOn"
+    public var sessionStateOverride: String? = nil
 
     public override init() {
         super.init()
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        if locationManager.authorizationStatus == .authorizedAlways {
+            locationManager.startUpdatingLocation()
+        }
+    }
+
+    public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        if manager.authorizationStatus == .authorizedAlways {
+            manager.startUpdatingLocation()
+        } else {
+            manager.stopUpdatingLocation()
+        }
+    }
+
+    public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if let loc = locations.last {
+            cachedLocation = loc
+        }
+    }
+
+    public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        // CoreLocation updates can intermittently fail if Wi-Fi positioning is temporarily unavailable
     }
 
     public func collectSnapshot(trigger: String = "Periodic") -> SensorSnapshot {
@@ -71,6 +128,22 @@ public final class SensorManager: NSObject, @unchecked Sendable {
         let cpuPct = getCPUUsage()
         let memPct = getMemoryUsage()
 
+        // Phase 1 HASS.Agent Parity Telemetry
+        let lastBootTime = getLastBootTime()
+        let lastActiveTime = getLastActiveTime(idleSeconds: idle)
+        let sessionStatus = getSessionState()
+        let (activeUser, activeUsersJson) = getLoggedUserInfo()
+        let currentVol = getCurrentVolume()
+        let accentHex = getAccentColor()
+        let clockSpeed = getCurrentClockSpeed()
+
+        // Phase 2 HASS.Agent Parity Telemetry
+        let (btCount, btJson, btLeCount, btLeJson) = getBluetoothInfo()
+        let therm = getThermalState()
+        let gpuPct = getGpuUsage()
+        let geo = getGeoLocation()
+        let winTitle = getActiveWindowTitle(frontAppName: frontApp)
+
         return SensorSnapshot(
             frontmostApp: frontApp,
             isUserActive: active,
@@ -96,7 +169,25 @@ public final class SensorManager: NSObject, @unchecked Sendable {
             memoryUsagePercent: memPct,
             isAudioMuted: isMuted,
             lastUpdateTrigger: trigger,
-            appVersion: "1.0.0"
+            appVersion: "1.1.0",
+            lastBoot: lastBootTime,
+            lastActive: lastActiveTime,
+            sessionState: sessionStatus,
+            lastSystemStateChange: lastSystemStateChange,
+            loggedUser: activeUser,
+            loggedUsers: activeUsersJson,
+            currentVolume: currentVol,
+            accentColor: accentHex,
+            monitorPowerState: monitorPowerState,
+            currentClockSpeed: clockSpeed,
+            bluetoothDevicesCount: btCount,
+            bluetoothDevicesJson: btJson,
+            bluetoothLeDevicesCount: btLeCount,
+            bluetoothLeDevicesJson: btLeJson,
+            thermalState: therm,
+            gpuUsagePercent: gpuPct,
+            geoLocation: geo,
+            activeWindowTitle: winTitle
         )
     }
 
@@ -266,7 +357,7 @@ public final class SensorManager: NSObject, @unchecked Sendable {
     private func getNetworkInfo() -> (ssid: String, bssid: String, type: String) {
         // Only query CWWiFiClient if location permission has already been granted.
         // Calling iface.ssid() when authorization is notDetermined triggers an unprompted macOS dialog!
-        let locStatus = CLLocationManager().authorizationStatus
+        let locStatus = locationManager.authorizationStatus
         if locStatus == .authorizedAlways {
             if let iface = CWWiFiClient.shared().interface() {
                 if let ssid = iface.ssid(), !ssid.isEmpty {
@@ -459,4 +550,312 @@ public final class SensorManager: NSObject, @unchecked Sendable {
         }
         return 0.0
     }
+
+    // MARK: - Phase 1 HASS.Agent Parity Telemetry Collectors
+
+    private func getLastBootTime() -> String {
+        var tv = timeval()
+        var size = MemoryLayout<timeval>.size
+        var mib: [Int32] = [CTL_KERN, KERN_BOOTTIME]
+        if sysctl(&mib, 2, &tv, &size, nil, 0) == 0 {
+            let date = Date(timeIntervalSince1970: TimeInterval(tv.tv_sec))
+            let formatter = ISO8601DateFormatter()
+            return formatter.string(from: date)
+        }
+        return ""
+    }
+
+    private func getLastActiveTime(idleSeconds: Double) -> String {
+        let date = Date().addingTimeInterval(-idleSeconds)
+        let formatter = ISO8601DateFormatter()
+        return formatter.string(from: date)
+    }
+
+    private func getSessionState() -> String {
+        if let override = sessionStateOverride {
+            return override
+        }
+        if let dict = CGSessionCopyCurrentDictionary() as? [String: Any] {
+            if let locked = dict["CGSSessionScreenIsLocked"] as? Bool, locked {
+                return "Locked"
+            }
+            if let lockedNum = dict["CGSSessionScreenIsLocked"] as? Int, lockedNum != 0 {
+                return "Locked"
+            }
+            return "Unlocked"
+        }
+        return "Unlocked"
+    }
+
+    private func getLoggedUserInfo() -> (user: String, usersJson: String) {
+        let currentUser = NSUserName()
+        var userSet = Set<String>()
+        userSet.insert(currentUser)
+
+        setutxent()
+        while let entry = getutxent() {
+            if entry.pointee.ut_type == USER_PROCESS {
+                let name = withUnsafePointer(to: entry.pointee.ut_user) { ptr in
+                    ptr.withMemoryRebound(to: CChar.self, capacity: MemoryLayout.size(ofValue: ptr)) { cstr in
+                        String(cString: cstr)
+                    }
+                }
+                if !name.isEmpty {
+                    userSet.insert(name)
+                }
+            }
+        }
+        endutxent()
+
+        let sortedUsers = Array(userSet).sorted()
+        if let data = try? JSONSerialization.data(withJSONObject: sortedUsers, options: []),
+           let json = String(data: data, encoding: .utf8) {
+            return (currentUser, json)
+        }
+        return (currentUser, "[\"\(currentUser)\"]")
+    }
+
+    private func getCurrentVolume() -> Int {
+        var defaultOutputID = AudioObjectID(0)
+        var propertySize = UInt32(MemoryLayout<AudioObjectID>.size)
+        var outAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        if AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &outAddress, 0, nil, &propertySize, &defaultOutputID) == noErr {
+            var volume: Float32 = 0.0
+            var volSize = UInt32(MemoryLayout<Float32>.size)
+            var volAddress = AudioObjectPropertyAddress(
+                mSelector: AudioObjectPropertySelector(kAudioHardwareServiceDeviceProperty_VirtualMainVolume),
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            if AudioObjectGetPropertyData(defaultOutputID, &volAddress, 0, nil, &volSize, &volume) == noErr {
+                return Int(round(volume * 100))
+            }
+        }
+        return 0
+    }
+
+    private func getAccentColor() -> String {
+        if let srgb = NSColor.controlAccentColor.usingColorSpace(.sRGB) {
+            let r = Int(round(srgb.redComponent * 255))
+            let g = Int(round(srgb.greenComponent * 255))
+            let b = Int(round(srgb.blueComponent * 255))
+            return String(format: "#%02X%02X%02X", r, g, b)
+        }
+        return "#007AFF"
+    }
+
+    private func getCurrentClockSpeed() -> Int {
+        var freq: UInt64 = 0
+        var size = MemoryLayout<UInt64>.size
+        if sysctlbyname("hw.cpufrequency_max", &freq, &size, nil, 0) == 0 && freq > 0 {
+            return Int(freq / 1_000_000)
+        }
+        if sysctlbyname("hw.cpufrequency", &freq, &size, nil, 0) == 0 && freq > 0 {
+            return Int(freq / 1_000_000)
+        }
+
+        var brandSize = 0
+        sysctlbyname("machdep.cpu.brand_string", nil, &brandSize, nil, 0)
+        if brandSize > 0 {
+            var brand = [CChar](repeating: 0, count: brandSize)
+            sysctlbyname("machdep.cpu.brand_string", &brand, &brandSize, nil, 0)
+            let brandStr = brand.withUnsafeBufferPointer { ptr in
+                ptr.baseAddress.map { String(cString: $0) }
+            }?.lowercased() ?? ""
+            if brandStr.contains("m4") { return 4400 }
+            if brandStr.contains("m3") { return 4050 }
+            if brandStr.contains("m2") { return 3500 }
+            if brandStr.contains("m1") { return 3200 }
+        }
+        return 3200
+    }
+
+    // MARK: - Phase 2 HASS.Agent Parity Telemetry Collectors
+
+    private func getBluetoothInfo() -> (classicCount: Int, classicJson: String, leCount: Int, leJson: String) {
+        guard CBManager.authorization == .allowedAlways else {
+            return (0, "[]", 0, "[]")
+        }
+
+        guard let paired = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] else {
+            return (0, "[]", 0, "[]")
+        }
+
+        var classicList: [[String: Any]] = []
+        var leList: [[String: Any]] = []
+
+        for dev in paired {
+            if dev.isConnected() {
+                let name = dev.name ?? dev.nameOrAddress ?? "Unknown Device"
+                let addr = dev.addressString ?? "Unknown"
+                let dict: [String: Any] = [
+                    "name": name,
+                    "address": addr,
+                    "connected": true
+                ]
+                classicList.append(dict)
+                if dev.classOfDevice == 0 || name.lowercased().contains("le") {
+                    leList.append(dict)
+                }
+            }
+        }
+
+        let cData = (try? JSONSerialization.data(withJSONObject: classicList, options: [])) ?? Data()
+        let leData = (try? JSONSerialization.data(withJSONObject: leList, options: [])) ?? Data()
+        let cJson = String(data: cData, encoding: .utf8) ?? "[]"
+        let leJson = String(data: leData, encoding: .utf8) ?? "[]"
+
+        return (classicList.count, cJson, leList.count, leJson)
+    }
+
+    private func getThermalState() -> String {
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: return "Nominal"
+        case .fair: return "Fair"
+        case .serious: return "Serious"
+        case .critical: return "Critical"
+        @unknown default: return "Nominal"
+        }
+    }
+
+    private func getGpuUsage() -> Double {
+        var iterator: io_iterator_t = 0
+        let matching = IOServiceMatching("IOAccelerator")
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator) == KERN_SUCCESS else {
+            return 0.0
+        }
+
+        var maxUtil: Double = 0.0
+        var service = IOIteratorNext(iterator)
+        while service != 0 {
+            var props: Unmanaged<CFMutableDictionary>?
+            if IORegistryEntryCreateCFProperties(service, &props, kCFAllocatorDefault, 0) == KERN_SUCCESS,
+               let dict = props?.takeRetainedValue() as? [String: Any],
+               let perfStats = dict["PerformanceStatistics"] as? [String: Any] {
+                if let util = perfStats["Device Utilization %"] as? Int {
+                    maxUtil = max(maxUtil, Double(util))
+                } else if let utilDbl = perfStats["Device Utilization %"] as? Double {
+                    maxUtil = max(maxUtil, utilDbl)
+                }
+            }
+            IOObjectRelease(service)
+            service = IOIteratorNext(iterator)
+        }
+        IOObjectRelease(iterator)
+        return maxUtil
+    }
+
+    private func getGeoLocation() -> String {
+        let locStatus = locationManager.authorizationStatus
+        guard locStatus == .authorizedAlways else {
+            return "Location Permission Required"
+        }
+        if let loc = cachedLocation ?? locationManager.location {
+            let lat = String(format: "%.6f", loc.coordinate.latitude)
+            let lon = String(format: "%.6f", loc.coordinate.longitude)
+            let alt = String(format: "%.1f", loc.altitude)
+            return "\(lat),\(lon),\(alt)"
+        }
+        return "Acquiring..."
+    }
+
+    public func getActiveWindowTitle(frontAppName: String) -> String {
+        guard let frontApp = NSWorkspace.shared.frontmostApplication else {
+            return frontAppName
+        }
+
+        let pid = frontApp.processIdentifier
+
+        // 1. Accessibility API (primary method across macOS applications)
+        let appElem = AXUIElementCreateApplication(pid)
+
+        // Try focused window first
+        var windowElem: CFTypeRef?
+        if AXUIElementCopyAttributeValue(appElem, kAXFocusedWindowAttribute as CFString, &windowElem) == .success,
+           let win = windowElem {
+            if let title = extractTitle(from: win as! AXUIElement) {
+                return title
+            }
+        }
+
+        // Try main window (fallback if focused window has no title or is subview)
+        var mainWinElem: CFTypeRef?
+        if AXUIElementCopyAttributeValue(appElem, kAXMainWindowAttribute as CFString, &mainWinElem) == .success,
+           let mainWin = mainWinElem {
+            if let title = extractTitle(from: mainWin as! AXUIElement) {
+                return title
+            }
+        }
+
+        // Try windows array (essential for apps like IINA or Electron where focusedWindow is nil or internal)
+        var windowsElem: CFTypeRef?
+        if AXUIElementCopyAttributeValue(appElem, kAXWindowsAttribute as CFString, &windowsElem) == .success,
+           let winList = windowsElem as? [AXUIElement] {
+            for win in winList {
+                if let title = extractTitle(from: win) {
+                    return title
+                }
+            }
+        }
+
+        // 2. Quartz Window Server fallback (CGWindowListCopyWindowInfo)
+        if let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
+            for win in windowList {
+                let ownerPid = win[kCGWindowOwnerPID as String] as? pid_t ?? 0
+                let layer = win[kCGWindowLayer as String] as? Int ?? -1
+                if ownerPid == pid && layer == 0 {
+                    if let title = win[kCGWindowName as String] as? String {
+                        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !trimmed.isEmpty {
+                            return trimmed
+                        }
+                    }
+                }
+            }
+        }
+
+        return frontAppName
+    }
+
+    private func extractTitle(from win: AXUIElement) -> String? {
+        // Direct title attribute
+        var titleRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(win, kAXTitleAttribute as CFString, &titleRef) == .success,
+           let title = titleRef as? String {
+            let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+
+        // Document attribute (file path or URL)
+        var docRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(win, kAXDocumentAttribute as CFString, &docRef) == .success,
+           let doc = docRef as? String {
+            let path = URL(string: doc)?.lastPathComponent ?? (doc as NSString).lastPathComponent
+            let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+
+        // Description attribute
+        var descRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(win, kAXDescriptionAttribute as CFString, &descRef) == .success,
+           let desc = descRef as? String {
+            let trimmed = desc.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+
+        return nil
+    }
 }
+
+

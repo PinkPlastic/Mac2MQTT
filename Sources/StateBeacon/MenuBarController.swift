@@ -1,6 +1,7 @@
 import AppKit
 import ServiceManagement
 import CoreAudio
+import AudioToolbox
 import IOKit.ps
 import notify
 
@@ -25,6 +26,13 @@ public final class MenuBarController: NSObject {
     private var focusUpdateWorkItems: [DispatchWorkItem] = []
     private var darwinNotifyTokens: [Int32] = []
 
+    // Instant Active Window & Title Watchers
+    private var activeAXObserver: AXObserver?
+    private var activeAXSource: CFRunLoopSource?
+    private var activeAXPid: pid_t = 0
+    private var windowUpdateWorkItem: DispatchWorkItem?
+    private var lastPublishedWindowTitle: String = ""
+
     // Menu item references
     private var statusMenuItem: NSMenuItem!
     private let statusView: NSView = {
@@ -44,16 +52,55 @@ public final class MenuBarController: NSObject {
     private var statusDebounceItem: DispatchWorkItem?
 
     private var liveHeaderSeparator: NSMenuItem!
-    private var liveHeader: NSMenuItem!
-    private var appMenuItem: NSMenuItem!
-    private var micMenuItem: NSMenuItem!
-    private var camMenuItem: NSMenuItem!
-    private var audioMenuItem: NSMenuItem!
-    private var battMenuItem: NSMenuItem!
-    private var wifiMenuItem: NSMenuItem!
-    private var focusMenuItem: NSMenuItem!
-    private var statsMenuItem: NSMenuItem!
     private var loginItemMenuItem: NSMenuItem!
+
+    // Live Sensors Twirl-Down Submenu
+    private var allSensorsMenuItem: NSMenuItem!
+    private var allSensorsMenu: NSMenu!
+
+    // Section Headers
+    private var headerSystem: NSMenuItem!
+    private var headerHardware: NSMenuItem!
+    private var headerAudio: NSMenuItem!
+    private var headerBattery: NSMenuItem!
+    private var headerNetwork: NSMenuItem!
+    private var headerFocus: NSMenuItem!
+    private var headerControls: NSMenuItem!
+
+    // Consolidated Space-Saving Submenu Items
+    // System & Activity
+    private var subItemAppAndWindow: NSMenuItem!
+    private var subItemUserAndIdle: NSMenuItem!
+    private var subItemPerf: NSMenuItem!
+    private var subItemDisplays: NSMenuItem!
+    private var subItemSession: NSMenuItem!
+    private var subItemLoggedUsers: NSMenuItem!
+    private var subItemTimestamps: NSMenuItem!
+    private var subItemSysInfo: NSMenuItem!
+
+    // Peripherals & Hardware
+    private var subItemThermal: NSMenuItem!
+    private var subItemBluetooth: NSMenuItem!
+
+    // Audio & Video
+    private var subItemAudioIn: NSMenuItem!
+    private var subItemAudioOut: NSMenuItem!
+    private var subItemCamera: NSMenuItem!
+
+    // Battery & Power
+    private var subItemBattery: NSMenuItem!
+
+    // Network & Location
+    private var subItemNetwork: NSMenuItem!
+    private var subItemGeo: NSMenuItem!
+
+    // Focus Mode
+    private var subItemFocus: NSMenuItem!
+
+    // Remote Controls
+    private var subItemMuteAction: NSMenuItem!
+    private var subItemLockAction: NSMenuItem!
+    private var subItemSleepAction: NSMenuItem!
 
     public init(config: AppConfig) {
         self.config = config
@@ -64,10 +111,10 @@ public final class MenuBarController: NSObject {
         startSensorLoop()
         publishSensorState(trigger: "Startup")
 
-        // Check if onboarding or permissions need to be completed on startup
+        // Check if onboarding needs to be completed on startup
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
             guard let self = self else { return }
-            if !self.config.hasCompletedOnboarding || !PreferencesWindowController.isAllPermissionsGranted() {
+            if !self.config.hasCompletedOnboarding {
                 self.openPreferences(tab: .permissions)
             }
         }
@@ -158,41 +205,117 @@ public final class MenuBarController: NSObject {
         liveHeaderSeparator = NSMenuItem.separator()
         menu.addItem(liveHeaderSeparator)
 
-        liveHeader = NSMenuItem(title: "Live Sensors:", action: nil, keyEquivalent: "")
-        liveHeader.isEnabled = false
-        menu.addItem(liveHeader)
+        // Live Sensors Twirl-Down Submenu (Consolidated Space-Saving Layout)
+        allSensorsMenuItem = NSMenuItem(title: "Live Sensors (41 active)", action: nil, keyEquivalent: "")
+        allSensorsMenu = NSMenu(title: "Live Sensors")
+        allSensorsMenu.autoenablesItems = false
 
-        appMenuItem = NSMenuItem(title: "  App: --", action: nil, keyEquivalent: "")
-        appMenuItem.isEnabled = false
-        menu.addItem(appMenuItem)
+        func makeHeader(_ title: String) -> NSMenuItem {
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            return item
+        }
 
-        micMenuItem = NSMenuItem(title: "  Mic: --", action: nil, keyEquivalent: "")
-        micMenuItem.isEnabled = false
-        menu.addItem(micMenuItem)
+        func makeInfoItem(_ title: String) -> NSMenuItem {
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            return item
+        }
 
-        camMenuItem = NSMenuItem(title: "  Camera: --", action: nil, keyEquivalent: "")
-        camMenuItem.isEnabled = false
-        menu.addItem(camMenuItem)
+        // 1. System & Activity
+        headerSystem = makeHeader("── System & Activity ──")
+        allSensorsMenu.addItem(headerSystem)
 
-        audioMenuItem = NSMenuItem(title: "  Audio: --", action: nil, keyEquivalent: "")
-        audioMenuItem.isEnabled = false
-        menu.addItem(audioMenuItem)
+        subItemAppAndWindow = makeInfoItem("App: --")
+        allSensorsMenu.addItem(subItemAppAndWindow)
 
-        battMenuItem = NSMenuItem(title: "  Battery: --", action: nil, keyEquivalent: "")
-        battMenuItem.isEnabled = false
-        menu.addItem(battMenuItem)
+        subItemUserAndIdle = makeInfoItem("User: --")
+        allSensorsMenu.addItem(subItemUserAndIdle)
 
-        wifiMenuItem = NSMenuItem(title: "  Wi-Fi: --", action: nil, keyEquivalent: "")
-        wifiMenuItem.isEnabled = false
-        menu.addItem(wifiMenuItem)
+        subItemPerf = makeInfoItem("CPU: -- | RAM: --")
+        allSensorsMenu.addItem(subItemPerf)
 
-        focusMenuItem = NSMenuItem(title: "  Focus Mode: Off", action: nil, keyEquivalent: "")
-        focusMenuItem.isEnabled = false
-        menu.addItem(focusMenuItem)
+        subItemDisplays = makeInfoItem("Displays: --")
+        allSensorsMenu.addItem(subItemDisplays)
 
-        statsMenuItem = NSMenuItem(title: "  CPU: -- | RAM: --", action: nil, keyEquivalent: "")
-        statsMenuItem.isEnabled = false
-        menu.addItem(statsMenuItem)
+        subItemSession = makeInfoItem("Session: --")
+        allSensorsMenu.addItem(subItemSession)
+
+        subItemLoggedUsers = makeInfoItem("Logged User: --")
+        allSensorsMenu.addItem(subItemLoggedUsers)
+
+        subItemTimestamps = makeInfoItem("Last Active: --")
+        allSensorsMenu.addItem(subItemTimestamps)
+
+        subItemSysInfo = makeInfoItem("Accent: --")
+        allSensorsMenu.addItem(subItemSysInfo)
+
+        // 2. Peripherals & Hardware
+        headerHardware = makeHeader("── Peripherals & Hardware ──")
+        allSensorsMenu.addItem(headerHardware)
+
+        subItemThermal = makeInfoItem("Thermal State: --")
+        allSensorsMenu.addItem(subItemThermal)
+
+        subItemBluetooth = makeInfoItem("Bluetooth: --")
+        allSensorsMenu.addItem(subItemBluetooth)
+
+        // 3. Audio & Video
+        headerAudio = makeHeader("── Audio & Video ──")
+        allSensorsMenu.addItem(headerAudio)
+
+        subItemAudioIn = makeInfoItem("Audio In: --")
+        allSensorsMenu.addItem(subItemAudioIn)
+
+        subItemAudioOut = makeInfoItem("Audio Out: --")
+        allSensorsMenu.addItem(subItemAudioOut)
+
+        subItemCamera = makeInfoItem("Camera: --")
+        allSensorsMenu.addItem(subItemCamera)
+
+        // 4. Battery & Power
+        headerBattery = makeHeader("── Battery & Power ──")
+        allSensorsMenu.addItem(headerBattery)
+
+        subItemBattery = makeInfoItem("Battery: --")
+        allSensorsMenu.addItem(subItemBattery)
+
+        // 5. Network & Location
+        headerNetwork = makeHeader("── Network & Location ──")
+        allSensorsMenu.addItem(headerNetwork)
+
+        subItemNetwork = makeInfoItem("Network: --")
+        allSensorsMenu.addItem(subItemNetwork)
+
+        subItemGeo = makeInfoItem("Location: --")
+        allSensorsMenu.addItem(subItemGeo)
+
+        // 6. Focus Mode
+        headerFocus = makeHeader("── Focus Mode ──")
+        allSensorsMenu.addItem(headerFocus)
+
+        subItemFocus = makeInfoItem("Focus: --")
+        allSensorsMenu.addItem(subItemFocus)
+
+        // 7. Remote Controls
+        headerControls = makeHeader("── Remote Controls ──")
+        allSensorsMenu.addItem(headerControls)
+
+        subItemMuteAction = NSMenuItem(title: "Mute Audio", action: #selector(toggleAudioMuteAction), keyEquivalent: "")
+        subItemMuteAction.target = self
+        allSensorsMenu.addItem(subItemMuteAction)
+
+        subItemLockAction = NSMenuItem(title: "Lock Screen", action: #selector(lockScreenAction), keyEquivalent: "")
+        subItemLockAction.target = self
+        allSensorsMenu.addItem(subItemLockAction)
+
+        subItemSleepAction = NSMenuItem(title: "Sleep Mac", action: #selector(sleepMacAction), keyEquivalent: "")
+        subItemSleepAction.target = self
+        allSensorsMenu.addItem(subItemSleepAction)
+
+        allSensorsMenuItem.submenu = allSensorsMenu
+        allSensorsMenuItem.isEnabled = true
+        menu.addItem(allSensorsMenuItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -294,7 +417,7 @@ public final class MenuBarController: NSObject {
             }
         }
 
-        // 1. App Switch Event
+        // 1. App Switch Event & Instant Active Window Observer
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
@@ -302,6 +425,22 @@ public final class MenuBarController: NSObject {
         ) { [weak self] _ in
             DispatchQueue.main.async {
                 self?.publishSensorState(trigger: "App Changed")
+                self?.attachAXObserverToFrontmostApp()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    self?.handleActiveWindowChanged()
+                }
+            }
+        }
+
+        // 1b. Space / Desktop Switch Event
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self?.attachAXObserverToFrontmostApp()
+                self?.handleActiveWindowChanged()
             }
         }
 
@@ -352,16 +491,56 @@ public final class MenuBarController: NSObject {
             }
         }
 
-        // 5. Focus Mode Real-time Listeners (Directory + File + Darwin + Distributed)
+        // 5. CoreAudio Master Volume Listener
+        var defaultOutputID = AudioObjectID(0)
+        var defSize = UInt32(MemoryLayout<AudioObjectID>.size)
+        if AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &outAddress, 0, nil, &defSize, &defaultOutputID) == noErr {
+            var volAddress = AudioObjectPropertyAddress(
+                mSelector: AudioObjectPropertySelector(kAudioHardwareServiceDeviceProperty_VirtualMainVolume),
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            AudioObjectAddPropertyListenerBlock(defaultOutputID, &volAddress, DispatchQueue.main) { [weak self] _, _ in
+                DispatchQueue.main.async {
+                    self?.publishSensorState(trigger: "Volume Changed")
+                }
+            }
+        }
+
+        // 6. Focus Mode Real-time Listeners (Directory + File + Darwin + Distributed)
         setupFocusMonitoring()
 
-        // 6. Sleep / Wake & Screen Lock Events
+        // 7. System Sleep / Wake Events (Suspend / Resume)
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willSleepNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.sensorManager.lastSystemStateChange = "Suspend"
+                self?.publishSensorState(trigger: "System Suspend")
+            }
+        }
+
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.sensorManager.lastSystemStateChange = "Resume"
+                self?.publishSensorState(trigger: "System Resume")
+            }
+        }
+
+        // 8. Screen Sleep / Wake Events (DisplaySleep / PowerOn)
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.screensDidSleepNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             DispatchQueue.main.async {
+                self?.sensorManager.monitorPowerState = "DisplaySleep"
                 self?.publishSensorState(trigger: "Screen Sleep")
             }
         }
@@ -372,9 +551,49 @@ public final class MenuBarController: NSObject {
             queue: .main
         ) { [weak self] _ in
             DispatchQueue.main.async {
+                self?.sensorManager.monitorPowerState = "PowerOn"
                 self?.publishSensorState(trigger: "Screen Wake")
             }
         }
+
+        // 9. Session Lock / Unlock Events (SessionLock / SessionUnlock)
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.apple.screenIsLocked"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.sensorManager.sessionStateOverride = "Locked"
+                self?.sensorManager.lastSystemStateChange = "SessionLock"
+                self?.publishSensorState(trigger: "Screen Locked")
+            }
+        }
+
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.apple.screenIsUnlocked"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.sensorManager.sessionStateOverride = "Unlocked"
+                self?.sensorManager.lastSystemStateChange = "SessionUnlock"
+                self?.publishSensorState(trigger: "Screen Unlocked")
+            }
+        }
+
+        // 10. Thermal State Change Event
+        NotificationCenter.default.addObserver(
+            forName: ProcessInfo.thermalStateDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.publishSensorState(trigger: "Thermal State Changed")
+            }
+        }
+
+        // Attach initial active window AXObserver
+        attachAXObserverToFrontmostApp()
     }
 
     // MARK: - Zero-Latency Focus Monitoring
@@ -512,6 +731,64 @@ public final class MenuBarController: NSObject {
         }
     }
 
+    // MARK: - Instant Active Window Monitoring
+
+    private func attachAXObserverToFrontmostApp() {
+        guard PreferencesWindowController.checkAccessibilityPermission() else { return }
+        guard let frontApp = NSWorkspace.shared.frontmostApplication else { return }
+        let pid = frontApp.processIdentifier
+        if pid == activeAXPid && activeAXObserver != nil {
+            return
+        }
+
+        detachAXObserver()
+        activeAXPid = pid
+
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        var observer: AXObserver?
+        let err = AXObserverCreate(pid, { (observer, element, notification, refcon) in
+            guard let refcon = refcon else { return }
+            let controller = Unmanaged<MenuBarController>.fromOpaque(refcon).takeUnretainedValue()
+            DispatchQueue.main.async {
+                controller.handleActiveWindowChanged()
+            }
+        }, &observer)
+
+        if err == .success, let observer = observer {
+            let appElem = AXUIElementCreateApplication(pid)
+            AXObserverAddNotification(observer, appElem, "AXFocusedWindowChanged" as CFString, context)
+            AXObserverAddNotification(observer, appElem, "AXTitleChanged" as CFString, context)
+            AXObserverAddNotification(observer, appElem, "AXMainWindowChanged" as CFString, context)
+            let source = AXObserverGetRunLoopSource(observer)
+            CFRunLoopAddSource(CFRunLoopGetMain(), source, .defaultMode)
+            self.activeAXObserver = observer
+            self.activeAXSource = source
+        }
+    }
+
+    private func detachAXObserver() {
+        if let source = activeAXSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .defaultMode)
+            activeAXSource = nil
+        }
+        activeAXObserver = nil
+        activeAXPid = 0
+    }
+
+    private func handleActiveWindowChanged() {
+        windowUpdateWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            let frontApp = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Finder"
+            let currentTitle = self.sensorManager.getActiveWindowTitle(frontAppName: frontApp)
+            if currentTitle != self.lastPublishedWindowTitle {
+                self.publishSensorState(trigger: "Window Changed")
+            }
+        }
+        windowUpdateWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08, execute: item)
+    }
+
     private func startSensorLoop() {
         timer?.invalidate()
         let interval = max(5.0, config.updateInterval)
@@ -525,139 +802,340 @@ public final class MenuBarController: NSObject {
     public func publishSensorState(trigger: String = "Periodic") {
         let snapshot = sensorManager.collectSnapshot(trigger: trigger)
         lastSnapshot = snapshot
+        lastPublishedWindowTitle = snapshot.activeWindowTitle
 
-        // 1. CPU & Memory
+        // 1. Calculate Active Sensors Count & Update Submenu Title
+        let activeCount = PreferencesWindowController.availableSensors.filter { def in
+            config.isSensorEnabled(def.id) && PreferencesWindowController.isSensorPermitted(def.id)
+        }.count
+
+        allSensorsMenuItem.title = "Live Sensors (\(activeCount) active)"
+        allSensorsMenuItem.isHidden = (activeCount == 0)
+        liveHeaderSeparator.isHidden = (activeCount == 0)
+
+        // 2. Space-Saving Submenu Items with 1:1 Visibility
+        // Category 1: System & Activity
+        let showFrontApp = config.isSensorEnabled("frontmost_app")
+        let hasAX = PreferencesWindowController.isPermissionGranted(for: .accessibility)
+        let showWin = config.isSensorEnabled("active_window") && hasAX
+        if showFrontApp && showWin {
+            let winTitle = snapshot.activeWindowTitle.count > 25 ? String(snapshot.activeWindowTitle.prefix(22)) + "..." : snapshot.activeWindowTitle
+            subItemAppAndWindow.title = "App: \(snapshot.frontmostApp) | Window: \(winTitle)"
+            subItemAppAndWindow.toolTip = snapshot.activeWindowTitle
+            subItemAppAndWindow.isHidden = false
+        } else if showFrontApp {
+            subItemAppAndWindow.title = "App: \(snapshot.frontmostApp)"
+            subItemAppAndWindow.toolTip = nil
+            subItemAppAndWindow.isHidden = false
+        } else if showWin {
+            let winTitle = snapshot.activeWindowTitle.count > 35 ? String(snapshot.activeWindowTitle.prefix(32)) + "..." : snapshot.activeWindowTitle
+            subItemAppAndWindow.title = "Active Window: \(winTitle)"
+            subItemAppAndWindow.toolTip = snapshot.activeWindowTitle
+            subItemAppAndWindow.isHidden = false
+        } else {
+            subItemAppAndWindow.isHidden = true
+        }
+
+        let showPresence = config.isSensorEnabled("active")
+        let showIdle = config.isSensorEnabled("idle_time")
+        if showPresence && showIdle {
+            subItemUserAndIdle.title = "User: \(snapshot.isUserActive ? "Active" : "Idle") (Idle: \(Int(snapshot.idleSeconds))s)"
+            subItemUserAndIdle.isHidden = false
+        } else if showPresence {
+            subItemUserAndIdle.title = "User Presence: \(snapshot.isUserActive ? "Active" : "Idle")"
+            subItemUserAndIdle.isHidden = false
+        } else if showIdle {
+            subItemUserAndIdle.title = "Idle Time: \(Int(snapshot.idleSeconds))s"
+            subItemUserAndIdle.isHidden = false
+        } else {
+            subItemUserAndIdle.isHidden = true
+        }
+
         let showCpu = config.isSensorEnabled("cpu_usage")
         let showRam = config.isSensorEnabled("memory_usage")
-        let showStats = showCpu || showRam
-        if showCpu && showRam {
-            statsMenuItem.title = "  CPU: \(Int(snapshot.cpuUsagePercent))% | RAM: \(Int(snapshot.memoryUsagePercent))%"
-        } else if showCpu {
-            statsMenuItem.title = "  CPU: \(Int(snapshot.cpuUsagePercent))%"
-        } else if showRam {
-            statsMenuItem.title = "  RAM: \(Int(snapshot.memoryUsagePercent))%"
+        let showGpu = config.isSensorEnabled("gpu_load")
+        let showClock = config.isSensorEnabled("current_clock_speed")
+        var perfParts: [String] = []
+        if showCpu { perfParts.append("CPU: \(Int(snapshot.cpuUsagePercent))%") }
+        if showRam { perfParts.append("RAM: \(Int(snapshot.memoryUsagePercent))%") }
+        if showGpu { perfParts.append("GPU: \(Int(snapshot.gpuUsagePercent))%") }
+        if showClock { perfParts.append("Clock: \(snapshot.currentClockSpeed) MHz") }
+        if !perfParts.isEmpty {
+            subItemPerf.title = perfParts.joined(separator: " | ")
+            subItemPerf.isHidden = false
+        } else {
+            subItemPerf.isHidden = true
         }
-        statsMenuItem.isHidden = !showStats
 
-        // 2. Frontmost Application
-        let showApp = config.isSensorEnabled("frontmost_app")
-        appMenuItem.title = "  App: \(snapshot.frontmostApp)"
-        appMenuItem.isHidden = !showApp
-
-        // 3. Microphone (In-Use and/or Active Mic Name)
-        let showMicInUse = config.isSensorEnabled("audio_input_in_use")
-        let showMicName = config.isSensorEnabled("active_audio_input")
-        let showMic = showMicInUse || showMicName
-        if showMicName && showMicInUse {
-            micMenuItem.title = "  Mic: \(snapshot.activeAudioInput)\(snapshot.isMicInUse ? " (🎙️ In Use)" : "")"
-        } else if showMicName {
-            micMenuItem.title = "  Mic: \(snapshot.activeAudioInput)"
-        } else if showMicInUse {
-            micMenuItem.title = "  Mic: \(snapshot.isMicInUse ? "🎙️ In Use" : "Inactive")"
+        let showDisplays = config.isSensorEnabled("displays")
+        let showPrimaryDisp = config.isSensorEnabled("primary_display_id")
+        let showDispPower = config.isSensorEnabled("monitor_power_state")
+        var dispParts: [String] = []
+        if showDisplays { dispParts.append("Displays: \(snapshot.displayCount)") }
+        if showPrimaryDisp { dispParts.append("Primary: \(snapshot.primaryDisplayId)") }
+        if showDispPower { dispParts.append("Power: \(snapshot.monitorPowerState)") }
+        if !dispParts.isEmpty {
+            subItemDisplays.title = dispParts.joined(separator: " | ")
+            subItemDisplays.isHidden = false
+        } else {
+            subItemDisplays.isHidden = true
         }
-        micMenuItem.isHidden = !showMic
 
-        // 4. Camera (In-Use and/or Active Camera Name)
+        let showSession = config.isSensorEnabled("session_state")
+        let showSysState = config.isSensorEnabled("last_system_state_change")
+        var sessionParts: [String] = []
+        if showSession { sessionParts.append("Session: \(snapshot.sessionState)") }
+        if showSysState { sessionParts.append("System: \(snapshot.lastSystemStateChange)") }
+        if !sessionParts.isEmpty {
+            subItemSession.title = sessionParts.joined(separator: " | ")
+            subItemSession.isHidden = false
+        } else {
+            subItemSession.isHidden = true
+        }
+
+        let showLoggedUser = config.isSensorEnabled("logged_user")
+        let showLoggedUsers = config.isSensorEnabled("logged_users")
+        if showLoggedUser && showLoggedUsers {
+            subItemLoggedUsers.title = "Logged User: \(snapshot.loggedUser) (\(snapshot.loggedUsers))"
+            subItemLoggedUsers.isHidden = false
+        } else if showLoggedUser {
+            subItemLoggedUsers.title = "Logged User: \(snapshot.loggedUser)"
+            subItemLoggedUsers.isHidden = false
+        } else if showLoggedUsers {
+            subItemLoggedUsers.title = "Logged Users: \(snapshot.loggedUsers)"
+            subItemLoggedUsers.isHidden = false
+        } else {
+            subItemLoggedUsers.isHidden = true
+        }
+
+        let showLastActive = config.isSensorEnabled("last_active")
+        let showLastBoot = config.isSensorEnabled("last_boot")
+        var timeParts: [String] = []
+        if showLastActive { timeParts.append("Active: \(formatHumanTime(snapshot.lastActive))") }
+        if showLastBoot { timeParts.append("Boot: \(formatHumanTime(snapshot.lastBoot))") }
+        if !timeParts.isEmpty {
+            subItemTimestamps.title = timeParts.joined(separator: " | ")
+            subItemTimestamps.isHidden = false
+        } else {
+            subItemTimestamps.isHidden = true
+        }
+
+        let showAccent = config.isSensorEnabled("accent_color")
+        let showVersion = config.isSensorEnabled("app_version")
+        var sysInfoParts: [String] = []
+        if showAccent { sysInfoParts.append("Accent: \(snapshot.accentColor)") }
+        if showVersion { sysInfoParts.append("Version: \(snapshot.appVersion)") }
+        if !sysInfoParts.isEmpty {
+            subItemSysInfo.title = sysInfoParts.joined(separator: " | ")
+            subItemSysInfo.isHidden = false
+        } else {
+            subItemSysInfo.isHidden = true
+        }
+
+        headerSystem.isHidden = subItemAppAndWindow.isHidden &&
+                                subItemUserAndIdle.isHidden &&
+                                subItemPerf.isHidden &&
+                                subItemDisplays.isHidden &&
+                                subItemSession.isHidden &&
+                                subItemLoggedUsers.isHidden &&
+                                subItemTimestamps.isHidden &&
+                                subItemSysInfo.isHidden
+
+        // Category 2: Peripherals & Hardware
+        let showThermal = config.isSensorEnabled("internal_device")
+        if showThermal {
+            subItemThermal.title = "Thermal State: \(snapshot.thermalState)"
+            subItemThermal.isHidden = false
+        } else {
+            subItemThermal.isHidden = true
+        }
+
+        let hasBt = PreferencesWindowController.isPermissionGranted(for: .bluetooth)
+        let showBtClassic = config.isSensorEnabled("bluetooth_devices") && hasBt
+        let showBtLe = config.isSensorEnabled("bluetooth_le_devices") && hasBt
+        var btParts: [String] = []
+        if showBtClassic { btParts.append("\(snapshot.bluetoothDevicesCount) Classic") }
+        if showBtLe { btParts.append("\(snapshot.bluetoothLeDevicesCount) LE") }
+        if !btParts.isEmpty {
+            subItemBluetooth.title = "Bluetooth: \(btParts.joined(separator: " | ")) connected"
+            subItemBluetooth.isHidden = false
+        } else {
+            subItemBluetooth.isHidden = true
+        }
+
+        headerHardware.isHidden = subItemThermal.isHidden && subItemBluetooth.isHidden
+
+        // Category 3: Audio & Video
+        let showAudioIn = config.isSensorEnabled("audio_input")
+        if showAudioIn {
+            subItemAudioIn.title = "Audio In: \(snapshot.activeAudioInput)\(snapshot.isMicInUse ? " (🎙️ In Use)" : " (Idle)")"
+            subItemAudioIn.isHidden = false
+        } else {
+            subItemAudioIn.isHidden = true
+        }
+
+        let showAudioOut = config.isSensorEnabled("audio_output")
+        let showVol = config.isSensorEnabled("current_volume")
+        let showMuted = config.isSensorEnabled("audio_muted")
+        var audioOutParts: [String] = []
+        if showAudioOut { audioOutParts.append("Output: \(snapshot.activeAudioOutput)\(snapshot.isAudioOutputInUse ? " (Playing)" : "")") }
+        if showVol { audioOutParts.append("Vol: \(snapshot.currentVolume)%") }
+        if showMuted { audioOutParts.append("Muted: \(snapshot.isAudioMuted ? "Yes" : "No")") }
+        if !audioOutParts.isEmpty {
+            subItemAudioOut.title = audioOutParts.joined(separator: " | ")
+            subItemAudioOut.isHidden = false
+        } else {
+            subItemAudioOut.isHidden = true
+        }
+
         let showCamInUse = config.isSensorEnabled("camera_in_use")
         let showCamName = config.isSensorEnabled("active_camera")
-        let showCam = showCamInUse || showCamName
         if showCamName && showCamInUse {
-            camMenuItem.title = "  Camera: \(snapshot.activeCamera)\(snapshot.isCameraInUse ? " (📷 In Use)" : "")"
+            subItemCamera.title = "Camera: \(snapshot.activeCamera) (\(snapshot.isCameraInUse ? "📷 In Use" : "Idle"))"
+            subItemCamera.isHidden = false
         } else if showCamName {
-            camMenuItem.title = "  Camera: \(snapshot.activeCamera)"
+            subItemCamera.title = "Camera: \(snapshot.activeCamera)"
+            subItemCamera.isHidden = false
         } else if showCamInUse {
-            camMenuItem.title = "  Camera: \(snapshot.isCameraInUse ? "📷 In Use" : "Inactive")"
+            subItemCamera.title = "Camera: \(snapshot.isCameraInUse ? "📷 In Use" : "Idle")"
+            subItemCamera.isHidden = false
+        } else {
+            subItemCamera.isHidden = true
         }
-        camMenuItem.isHidden = !showCam
 
-        // 5. Audio Output (In-Use and/or Active Output Name)
-        let showAudioInUse = config.isSensorEnabled("audio_output_in_use")
-        let showAudioName = config.isSensorEnabled("active_audio_output")
-        let showAudio = showAudioInUse || showAudioName
-        if showAudioName && showAudioInUse {
-            audioMenuItem.title = "  Audio: \(snapshot.activeAudioOutput)\(snapshot.isAudioOutputInUse ? " (Playing)" : "")"
-        } else if showAudioName {
-            audioMenuItem.title = "  Audio: \(snapshot.activeAudioOutput)"
-        } else if showAudioInUse {
-            audioMenuItem.title = "  Audio: \(snapshot.isAudioOutputInUse ? "Playing" : "Inactive")"
-        }
-        audioMenuItem.isHidden = !showAudio
+        headerAudio.isHidden = subItemAudioIn.isHidden && subItemAudioOut.isHidden && subItemCamera.isHidden
 
-        // 6. Battery & Power
+        // Category 4: Battery & Power
         let showBattLevel = config.isSensorEnabled("internal_battery_level")
         let showBattCharging = config.isSensorEnabled("internal_battery_charging")
         let showBattState = config.isSensorEnabled("internal_battery_state")
-        let showPowerSource = config.isSensorEnabled("power_source")
-        let showBatt = showBattLevel || showBattCharging || showBattState || showPowerSource
-        if showBatt {
+        let showPowerSrc = config.isSensorEnabled("power_source")
+        if showBattLevel {
             var details: [String] = []
-            if showBattState {
-                details.append(snapshot.batteryState)
-            } else if showBattCharging {
-                details.append(snapshot.isCharging ? "Charging" : "Not Charging")
-            }
-            if showPowerSource {
-                details.append(snapshot.powerSource)
-            }
-
-            if showBattLevel {
-                if details.isEmpty {
-                    battMenuItem.title = "  Battery: \(snapshot.batteryLevel)%"
-                } else {
-                    battMenuItem.title = "  Battery: \(snapshot.batteryLevel)% (\(details.joined(separator: " - ")))"
-                }
+            if showBattState { details.append(snapshot.batteryState) }
+            if showPowerSrc { details.append(snapshot.powerSource) }
+            if showBattCharging { details.append(snapshot.isCharging ? "Charging" : "Not Charging") }
+            let suffix = details.isEmpty ? "" : " (\(details.joined(separator: " - ")))"
+            subItemBattery.title = "Battery: \(snapshot.batteryLevel)%\(suffix)"
+            subItemBattery.isHidden = false
+        } else {
+            var details: [String] = []
+            if showBattState { details.append("State: \(snapshot.batteryState)") }
+            if showPowerSrc { details.append("Source: \(snapshot.powerSource)") }
+            if showBattCharging { details.append("Charging: \(snapshot.isCharging ? "Yes" : "No")") }
+            if !details.isEmpty {
+                subItemBattery.title = details.joined(separator: " | ")
+                subItemBattery.isHidden = false
             } else {
-                if !details.isEmpty {
-                    if !showBattState && !showBattCharging && showPowerSource {
-                        battMenuItem.title = "  Power Source: \(snapshot.powerSource)"
-                    } else {
-                        battMenuItem.title = "  Battery: " + details.joined(separator: " - ")
-                    }
-                }
+                subItemBattery.isHidden = true
             }
         }
-        battMenuItem.isHidden = !showBatt
 
-        // 7. Network / Wi-Fi
+        headerBattery.isHidden = subItemBattery.isHidden
+
+        // Category 5: Network & Location
         let hasLocation = PreferencesWindowController.isPermissionGranted(for: .location)
         let showWifiSsid = config.isSensorEnabled("wifi_ssid") && hasLocation
         let showWifiBssid = config.isSensorEnabled("bssid") && hasLocation
         let showConnType = config.isSensorEnabled("connection_type")
-        let showWifi = showWifiSsid || showWifiBssid || showConnType
-        if showWifi {
-            if showWifiSsid && showWifiBssid {
-                wifiMenuItem.title = "  Wi-Fi: \(snapshot.wifiSSID) (\(snapshot.wifiBSSID))"
-            } else if showWifiSsid {
-                wifiMenuItem.title = "  Wi-Fi: \(snapshot.wifiSSID)"
-            } else if showWifiBssid {
-                wifiMenuItem.title = "  Wi-Fi BSSID: \(snapshot.wifiBSSID)"
-            } else if showConnType {
-                wifiMenuItem.title = "  Network: \(snapshot.connectionType)"
-            }
+        if showConnType {
+            var netDetails: [String] = []
+            if showWifiSsid { netDetails.append(snapshot.wifiSSID) }
+            if showWifiBssid { netDetails.append(snapshot.wifiBSSID) }
+            let suffix = netDetails.isEmpty ? "" : " (\(netDetails.joined(separator: " - ")))"
+            subItemNetwork.title = "Network: \(snapshot.connectionType)\(suffix)"
+            subItemNetwork.isHidden = false
+        } else if showWifiSsid || showWifiBssid {
+            var netDetails: [String] = []
+            if showWifiSsid { netDetails.append("SSID: \(snapshot.wifiSSID)") }
+            if showWifiBssid { netDetails.append("BSSID: \(snapshot.wifiBSSID)") }
+            subItemNetwork.title = netDetails.joined(separator: " | ")
+            subItemNetwork.isHidden = false
+        } else {
+            subItemNetwork.isHidden = true
         }
-        wifiMenuItem.isHidden = !showWifi
 
-        // 8. Focus Mode
+        let showGeo = config.isSensorEnabled("geo_location") && hasLocation
+        if showGeo {
+            subItemGeo.title = "Location: \(snapshot.geoLocation)"
+            subItemGeo.isHidden = false
+        } else {
+            subItemGeo.isHidden = true
+        }
+
+        headerNetwork.isHidden = subItemNetwork.isHidden && subItemGeo.isHidden
+
+        // Category 6: Focus Mode
         let hasFDA = PreferencesWindowController.isPermissionGranted(for: .fullDiskAccess)
         let showFocusActive = config.isSensorEnabled("focus") && hasFDA
-        let showFocusName = config.isSensorEnabled("focus_mode") && hasFDA
-        let showFocus = showFocusActive || showFocusName
-        if showFocus {
-            if showFocusName {
-                focusMenuItem.title = "  Focus Mode: \(snapshot.focusMode)"
-            } else if showFocusActive {
-                focusMenuItem.title = "  Focus: \(snapshot.isFocusActive ? "Active" : "Off")"
-            }
+        let showFocusMode = config.isSensorEnabled("focus_mode") && hasFDA
+        if showFocusMode && showFocusActive {
+            subItemFocus.title = "Focus: \(snapshot.focusMode) (\(snapshot.isFocusActive ? "Active" : "Off"))"
+            subItemFocus.isHidden = false
+        } else if showFocusMode {
+            subItemFocus.title = "Focus Mode: \(snapshot.focusMode)"
+            subItemFocus.isHidden = false
+        } else if showFocusActive {
+            subItemFocus.title = "Focus Active: \(snapshot.isFocusActive ? "Active" : "Off")"
+            subItemFocus.isHidden = false
+        } else {
+            subItemFocus.isHidden = true
         }
-        focusMenuItem.isHidden = !showFocus
 
-        let hasAnyLive = showApp || showMic || showCam || showAudio || showBatt || showWifi || showFocus || showStats
-        liveHeader.isHidden = !hasAnyLive
-        liveHeaderSeparator.isHidden = !hasAnyLive
+        headerFocus.isHidden = subItemFocus.isHidden
+
+        // Category 7: Remote Controls
+        let showMuteControl = config.isSensorEnabled("mute_audio")
+        subItemMuteAction.title = "Mute Audio (\(snapshot.isAudioMuted ? "Muted" : "Unmuted"))"
+        subItemMuteAction.isHidden = !showMuteControl
+
+        let showLockControl = config.isSensorEnabled("lock_screen")
+        subItemLockAction.isHidden = !showLockControl
+
+        let showSleepControl = config.isSensorEnabled("sleep")
+        subItemSleepAction.isHidden = !showSleepControl
+
+        headerControls.isHidden = subItemMuteAction.isHidden && subItemLockAction.isHidden && subItemSleepAction.isHidden
 
         if isConnected {
             discovery.publishState(snapshot: snapshot)
         }
+    }
+
+    @objc private func toggleAudioMuteAction() {
+        guard let snapshot = lastSnapshot else { return }
+        let newMute = !snapshot.isAudioMuted
+        let script = "set volume output muted \(newMute)"
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+        try? process.run()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.publishSensorState(trigger: "Mute Toggled")
+        }
+    }
+
+    @objc private func lockScreenAction() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
+        process.arguments = ["displaysleepnow"]
+        try? process.run()
+    }
+
+    @objc private func sleepMacAction() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
+        process.arguments = ["sleepnow"]
+        try? process.run()
+    }
+
+    private func formatHumanTime(_ isoString: String) -> String {
+        guard !isoString.isEmpty, isoString != "Unknown" else { return "--" }
+        let cleaned = isoString.replacingOccurrences(of: "T", with: " ").replacingOccurrences(of: "Z", with: "")
+        if cleaned.count >= 19 {
+            return String(cleaned.prefix(19))
+        }
+        return cleaned
     }
 
     // MARK: - Actions

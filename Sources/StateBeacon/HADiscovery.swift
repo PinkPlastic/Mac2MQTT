@@ -19,7 +19,7 @@ public final class HADiscovery: @unchecked Sendable {
             "name": config.deviceName,
             "model": "Mac (\(ProcessInfo.processInfo.operatingSystemVersionString))",
             "manufacturer": "Apple",
-            "sw_version": "1.0.0"
+            "sw_version": "1.1.0"
         ]
 
         let stateTopic = "\(baseTopic)/state"
@@ -48,7 +48,10 @@ public final class HADiscovery: @unchecked Sendable {
             "homeassistant/binary_sensor/\(config.deviceId)/battery_charging/config",
             "homeassistant/sensor/\(config.deviceId)/battery_level/config",
             "homeassistant/binary_sensor/\(config.deviceId)/user_active/config",
-            "homeassistant/sensor/\(config.deviceId)/idle_time/config"
+            "homeassistant/binary_sensor/\(config.deviceId)/audio_input_in_use/config",
+            "homeassistant/sensor/\(config.deviceId)/active_audio_input/config",
+            "homeassistant/binary_sensor/\(config.deviceId)/audio_output_in_use/config",
+            "homeassistant/sensor/\(config.deviceId)/active_audio_output/config"
         ]
         for topic in obsoleteTopics {
             client.publish(topic: topic, payload: Data(), retain: true, qos: 1)
@@ -65,24 +68,14 @@ public final class HADiscovery: @unchecked Sendable {
             "unique_id": "\(config.deviceId)_active"
         ])
 
-        publishEntity(domain: "binary_sensor", objectId: "audio_input_in_use", payload: [
-            "name": "Audio Input In Use",
+        publishEntity(domain: "binary_sensor", objectId: "audio_muted", payload: [
+            "name": "Audio Muted",
             "state_topic": stateTopic,
-            "value_template": "{{ value_json.is_mic_in_use }}",
+            "value_template": "{{ value_json.is_audio_muted }}",
             "payload_on": true,
             "payload_off": false,
-            "icon": "mdi:microphone",
-            "unique_id": "\(config.deviceId)_audio_input_in_use"
-        ])
-
-        publishEntity(domain: "binary_sensor", objectId: "audio_output_in_use", payload: [
-            "name": "Audio Output In Use",
-            "state_topic": stateTopic,
-            "value_template": "{{ value_json.is_audio_output_in_use }}",
-            "payload_on": true,
-            "payload_off": false,
-            "icon": "mdi:volume-high",
-            "unique_id": "\(config.deviceId)_audio_output_in_use"
+            "icon": "mdi:volume-mute",
+            "unique_id": "\(config.deviceId)_audio_muted"
         ])
 
         publishEntity(domain: "binary_sensor", objectId: "camera_in_use", payload: [
@@ -132,20 +125,34 @@ public final class HADiscovery: @unchecked Sendable {
             "unique_id": "\(config.deviceId)_frontmost_app"
         ])
 
-        publishEntity(domain: "sensor", objectId: "active_audio_output", payload: [
-            "name": "Active Audio Output",
+        publishEntity(domain: "sensor", objectId: "idle_time", payload: [
+            "name": "Idle Seconds",
             "state_topic": stateTopic,
-            "value_template": "{{ value_json.active_audio_output }}",
-            "icon": "mdi:headphones",
-            "unique_id": "\(config.deviceId)_active_audio_output"
+            "value_template": "{{ value_json.idle_seconds }}",
+            "unit_of_measurement": "s",
+            "state_class": "measurement",
+            "icon": "mdi:timer-outline",
+            "unique_id": "\(config.deviceId)_idle_time"
         ])
 
-        publishEntity(domain: "sensor", objectId: "active_audio_input", payload: [
-            "name": "Active Audio Input",
+        publishEntity(domain: "sensor", objectId: "audio_output", payload: [
+            "name": "Audio Output",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.active_audio_output }}",
+            "json_attributes_topic": stateTopic,
+            "json_attributes_template": "{{ {'in_use': value_json.is_audio_output_in_use, 'volume': value_json.current_volume, 'muted': value_json.is_audio_muted} | to_json }}",
+            "icon": "mdi:headphones",
+            "unique_id": "\(config.deviceId)_audio_output"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "audio_input", payload: [
+            "name": "Audio Input",
             "state_topic": stateTopic,
             "value_template": "{{ value_json.active_audio_input }}",
+            "json_attributes_topic": stateTopic,
+            "json_attributes_template": "{{ {'in_use': value_json.is_mic_in_use} | to_json }}",
             "icon": "mdi:microphone-outline",
-            "unique_id": "\(config.deviceId)_active_audio_input"
+            "unique_id": "\(config.deviceId)_audio_input"
         ])
 
         publishEntity(domain: "sensor", objectId: "active_camera", payload: [
@@ -258,6 +265,151 @@ public final class HADiscovery: @unchecked Sendable {
             "unique_id": "\(config.deviceId)_memory_usage"
         ])
 
+        // Phase 1 HASS.Agent Parity Sensors
+        publishEntity(domain: "sensor", objectId: "last_boot", payload: [
+            "name": "Last Boot",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.last_boot }}",
+            "device_class": "timestamp",
+            "icon": "mdi:clock-time-three-outline",
+            "unique_id": "\(config.deviceId)_last_boot"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "last_active", payload: [
+            "name": "Last Active",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.last_active }}",
+            "device_class": "timestamp",
+            "icon": "mdi:clock-time-three-outline",
+            "unique_id": "\(config.deviceId)_last_active"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "session_state", payload: [
+            "name": "Session State",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.session_state }}",
+            "icon": "mdi:lock",
+            "unique_id": "\(config.deviceId)_session_state"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "last_system_state_change", payload: [
+            "name": "Last System State Change",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.last_system_state_change }}",
+            "icon": "mdi:cog",
+            "unique_id": "\(config.deviceId)_last_system_state_change"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "logged_user", payload: [
+            "name": "Logged User",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.logged_user }}",
+            "icon": "mdi:account",
+            "unique_id": "\(config.deviceId)_logged_user"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "logged_users", payload: [
+            "name": "Logged Users",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.logged_users }}",
+            "icon": "mdi:account-group",
+            "unique_id": "\(config.deviceId)_logged_users"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "current_volume", payload: [
+            "name": "Current Volume",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.current_volume }}",
+            "unit_of_measurement": "%",
+            "state_class": "measurement",
+            "icon": "mdi:volume-medium",
+            "unique_id": "\(config.deviceId)_current_volume"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "accent_color", payload: [
+            "name": "Accent Color",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.accent_color }}",
+            "icon": "mdi:palette",
+            "unique_id": "\(config.deviceId)_accent_color"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "monitor_power_state", payload: [
+            "name": "Monitor Power State",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.monitor_power_state }}",
+            "icon": "mdi:monitor",
+            "unique_id": "\(config.deviceId)_monitor_power_state"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "current_clock_speed", payload: [
+            "name": "Current Clock Speed",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.current_clock_speed }}",
+            "unit_of_measurement": "MHz",
+            "device_class": "frequency",
+            "state_class": "measurement",
+            "icon": "mdi:speedometer",
+            "unique_id": "\(config.deviceId)_current_clock_speed"
+        ])
+
+        // Phase 2 HASS.Agent Parity Sensors
+        publishEntity(domain: "sensor", objectId: "bluetooth_devices", payload: [
+            "name": "Bluetooth Devices",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.bluetooth_devices }}",
+            "json_attributes_topic": stateTopic,
+            "json_attributes_template": "{{ value_json.bluetooth_devices_list }}",
+            "state_class": "measurement",
+            "icon": "mdi:bluetooth",
+            "unique_id": "\(config.deviceId)_bluetooth_devices"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "bluetooth_le_devices", payload: [
+            "name": "Bluetooth LE Devices",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.bluetooth_le_devices }}",
+            "json_attributes_topic": stateTopic,
+            "json_attributes_template": "{{ value_json.bluetooth_le_devices_list }}",
+            "state_class": "measurement",
+            "icon": "mdi:bluetooth-connect",
+            "unique_id": "\(config.deviceId)_bluetooth_le_devices"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "internal_device", payload: [
+            "name": "Thermal State",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.thermal_state }}",
+            "icon": "mdi:thermometer-alert",
+            "unique_id": "\(config.deviceId)_internal_device"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "gpu_load", payload: [
+            "name": "GPU Load",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.gpu_load }}",
+            "unit_of_measurement": "%",
+            "state_class": "measurement",
+            "icon": "mdi:expansion-card",
+            "unique_id": "\(config.deviceId)_gpu_load"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "geo_location", payload: [
+            "name": "Geo Location",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.geo_location }}",
+            "icon": "mdi:earth",
+            "unique_id": "\(config.deviceId)_geo_location"
+        ])
+
+        publishEntity(domain: "sensor", objectId: "active_window", payload: [
+            "name": "Active Window",
+            "state_topic": stateTopic,
+            "value_template": "{{ value_json.active_window }}",
+            "icon": "mdi:window-maximize",
+            "unique_id": "\(config.deviceId)_active_window"
+        ])
+
         // 3. Remote Commands
         publishEntity(domain: "button", objectId: "sleep", payload: [
             "name": "Sleep Mac",
@@ -322,7 +474,25 @@ public final class HADiscovery: @unchecked Sendable {
             "memory_usage": round(snapshot.memoryUsagePercent * 10) / 10.0,
             "is_audio_muted": snapshot.isAudioMuted,
             "last_update_trigger": snapshot.lastUpdateTrigger,
-            "app_version": snapshot.appVersion
+            "app_version": snapshot.appVersion,
+            "last_boot": snapshot.lastBoot,
+            "last_active": snapshot.lastActive,
+            "session_state": snapshot.sessionState,
+            "last_system_state_change": snapshot.lastSystemStateChange,
+            "logged_user": snapshot.loggedUser,
+            "logged_users": snapshot.loggedUsers,
+            "current_volume": snapshot.currentVolume,
+            "accent_color": snapshot.accentColor,
+            "monitor_power_state": snapshot.monitorPowerState,
+            "current_clock_speed": snapshot.currentClockSpeed,
+            "bluetooth_devices": snapshot.bluetoothDevicesCount,
+            "bluetooth_devices_list": snapshot.bluetoothDevicesJson,
+            "bluetooth_le_devices": snapshot.bluetoothLeDevicesCount,
+            "bluetooth_le_devices_list": snapshot.bluetoothLeDevicesJson,
+            "thermal_state": snapshot.thermalState,
+            "gpu_load": round(snapshot.gpuUsagePercent * 10) / 10.0,
+            "geo_location": snapshot.geoLocation,
+            "active_window": snapshot.activeWindowTitle
         ]
 
         if let data = try? JSONSerialization.data(withJSONObject: stateDict, options: []) {

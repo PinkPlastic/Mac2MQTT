@@ -39,7 +39,7 @@ cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>1.1.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>LSMinimumSystemVersion</key>
@@ -53,9 +53,15 @@ cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
     <key>NSFocusStatusUsageDescription</key>
     <string>StateBeacon syncs your Mac's Focus mode state with Home Assistant.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>StateBeacon reads Wi-Fi SSID and BSSID for Home Assistant network presence.</string>
+    <string>StateBeacon reads Wi-Fi SSID, BSSID, and Geolocation coordinates for Home Assistant presence and automations.</string>
     <key>NSLocationUsageDescription</key>
-    <string>StateBeacon reads Wi-Fi SSID and BSSID for Home Assistant network presence.</string>
+    <string>StateBeacon reads Wi-Fi SSID, BSSID, and Geolocation coordinates for Home Assistant presence and automations.</string>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>StateBeacon monitors connected Bluetooth devices and peripherals for Home Assistant presence.</string>
+    <key>NSBluetoothPeripheralUsageDescription</key>
+    <string>StateBeacon monitors connected Bluetooth devices and peripherals for Home Assistant presence.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>StateBeacon interacts with system audio and windows for Home Assistant automations.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>
@@ -63,7 +69,7 @@ cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
 EOF
 
 echo "Signing application bundle with ad-hoc signature..."
-codesign --force --deep --sign - "$APP_DIR"
+codesign --force --deep -s - --identifier "com.rufus.StateBeacon" -r='designated => identifier "com.rufus.StateBeacon"' "$APP_DIR"
 
 INSTALL_DIR="/Applications/StateBeacon.app"
 if [ -d "/Applications" ] && [ -w "/Applications" ]; then
