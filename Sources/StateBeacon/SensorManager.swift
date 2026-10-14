@@ -66,6 +66,13 @@ public final class SensorManager: NSObject, CLLocationManagerDelegate, @unchecke
     private let locationManager = CLLocationManager()
     private var cachedLocation: CLLocation?
 
+    // Memoized static telemetry & caches
+    private let isoFormatter = ISO8601DateFormatter()
+    private var cachedBootTime: String = ""
+    private var cachedClockSpeed: Int = 3200
+    private var cachedFocusAssertionsDate: Date?
+    private var cachedFocusMode: (name: String, isActive: Bool) = ("Off", false)
+
     // Live session & system state trackers
     public var lastSystemStateChange: String = "Startup"
     public var monitorPowerState: String = "PowerOn"
@@ -78,6 +85,8 @@ public final class SensorManager: NSObject, CLLocationManagerDelegate, @unchecke
         if locationManager.authorizationStatus == .authorizedAlways {
             locationManager.startUpdatingLocation()
         }
+        self.cachedBootTime = Self.queryLastBootTime(formatter: self.isoFormatter)
+        self.cachedClockSpeed = Self.queryClockSpeed()
     }
 
     public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
@@ -98,7 +107,7 @@ public final class SensorManager: NSObject, CLLocationManagerDelegate, @unchecke
         // CoreLocation updates can intermittently fail if Wi-Fi positioning is temporarily unavailable
     }
 
-    public func collectSnapshot(trigger: String = "Periodic") -> SensorSnapshot {
+    public func collectSnapshot(trigger: String = "Periodic", config: AppConfig? = nil) -> SensorSnapshot {
         let frontApp = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Finder"
         
         // Idle & Active
@@ -119,30 +128,46 @@ public final class SensorManager: NSObject, CLLocationManagerDelegate, @unchecke
         let primaryDisplayId = String(CGMainDisplayID())
 
         // Wi-Fi & Network
-        let (ssid, bssid, connType) = getNetworkInfo()
+        let (ssid, bssid, connType): (String, String, String)
+        if let cfg = config, !cfg.isSensorEnabled("wifi_ssid") && !cfg.isSensorEnabled("bssid") && !cfg.isSensorEnabled("connection_type") {
+            (ssid, bssid, connType) = ("Disabled", "Disabled", "None")
+        } else {
+            (ssid, bssid, connType) = getNetworkInfo()
+        }
 
         // Focus Mode (Do Not Disturb / Work / Personal / etc.)
-        let (focusName, focusActive) = getFocusModeInfo()
+        let (focusName, focusActive): (String, Bool)
+        if let cfg = config, !cfg.isSensorEnabled("focus") && !cfg.isSensorEnabled("focus_mode") {
+            (focusName, focusActive) = ("Off", false)
+        } else {
+            (focusName, focusActive) = getFocusModeInfo()
+        }
 
         // CPU & RAM
-        let cpuPct = getCPUUsage()
-        let memPct = getMemoryUsage()
+        let cpuPct = (config?.isSensorEnabled("cpu_usage") == false) ? 0.0 : getCPUUsage()
+        let memPct = (config?.isSensorEnabled("memory_usage") == false) ? 0.0 : getMemoryUsage()
 
         // Phase 1 HASS.Agent Parity Telemetry
         let lastBootTime = getLastBootTime()
         let lastActiveTime = getLastActiveTime(idleSeconds: idle)
         let sessionStatus = getSessionState()
         let (activeUser, activeUsersJson) = getLoggedUserInfo()
-        let currentVol = getCurrentVolume()
+        let currentVol = (config?.isSensorEnabled("current_volume") == false) ? 0 : getCurrentVolume()
         let accentHex = getAccentColor()
         let clockSpeed = getCurrentClockSpeed()
 
         // Phase 2 HASS.Agent Parity Telemetry
-        let (btCount, btJson, btLeCount, btLeJson) = getBluetoothInfo()
+        let (btCount, btJson, btLeCount, btLeJson): (Int, String, Int, String)
+        if let cfg = config, !cfg.isSensorEnabled("bluetooth_devices") && !cfg.isSensorEnabled("bluetooth_le_devices") {
+            (btCount, btJson, btLeCount, btLeJson) = (0, "[]", 0, "[]")
+        } else {
+            (btCount, btJson, btLeCount, btLeJson) = getBluetoothInfo()
+        }
+
         let therm = getThermalState()
-        let gpuPct = getGpuUsage()
-        let geo = getGeoLocation()
-        let winTitle = getActiveWindowTitle(frontAppName: frontApp)
+        let gpuPct = (config?.isSensorEnabled("gpu_load") == false) ? 0.0 : getGpuUsage()
+        let geo = (config?.isSensorEnabled("geo_location") == false) ? "Disabled" : getGeoLocation()
+        let winTitle = (config?.isSensorEnabled("active_window") == false) ? frontApp : getActiveWindowTitle(frontAppName: frontApp)
 
         return SensorSnapshot(
             frontmostApp: frontApp,
@@ -422,9 +447,23 @@ public final class SensorManager: NSObject, CLLocationManagerDelegate, @unchecke
 
         // 1. Check local DoNotDisturb database (Assertions.json) if granted Full Disk Access
         let assertionsURL = home.appendingPathComponent("Library/DoNotDisturb/DB/Assertions.json")
+
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: assertionsURL.path),
+           let mtime = attrs[.modificationDate] as? Date {
+            if mtime == cachedFocusAssertionsDate {
+                return cachedFocusMode
+            }
+            cachedFocusAssertionsDate = mtime
+        }
+
+        func setResult(_ res: (String, Bool)) -> (String, Bool) {
+            cachedFocusMode = res
+            return res
+        }
+
         guard let data = try? Data(contentsOf: assertionsURL),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return ("Off", false)
+            return setResult(("Off", false))
         }
 
         var assertionRecords: [[String: Any]] = []
@@ -439,7 +478,7 @@ public final class SensorManager: NSObject, CLLocationManagerDelegate, @unchecke
         }
 
         if assertionRecords.isEmpty {
-            return ("Off", false)
+            return setResult(("Off", false))
         }
 
         for record in assertionRecords.reversed() {
@@ -455,11 +494,11 @@ public final class SensorManager: NSObject, CLLocationManagerDelegate, @unchecke
             
             if let modeId = modeId, !modeId.isEmpty {
                 let name = resolveFocusModeName(modeId: modeId, home: home)
-                return (name, true)
+                return setResult((name, true))
             }
         }
 
-        return ("Off", false)
+        return setResult(("Off", false))
     }
 
     private func resolveFocusModeName(modeId: String, home: URL) -> String {
@@ -553,22 +592,24 @@ public final class SensorManager: NSObject, CLLocationManagerDelegate, @unchecke
 
     // MARK: - Phase 1 HASS.Agent Parity Telemetry Collectors
 
-    private func getLastBootTime() -> String {
+    private static func queryLastBootTime(formatter: ISO8601DateFormatter) -> String {
         var tv = timeval()
         var size = MemoryLayout<timeval>.size
         var mib: [Int32] = [CTL_KERN, KERN_BOOTTIME]
         if sysctl(&mib, 2, &tv, &size, nil, 0) == 0 {
             let date = Date(timeIntervalSince1970: TimeInterval(tv.tv_sec))
-            let formatter = ISO8601DateFormatter()
             return formatter.string(from: date)
         }
         return ""
     }
 
+    private func getLastBootTime() -> String {
+        return cachedBootTime
+    }
+
     private func getLastActiveTime(idleSeconds: Double) -> String {
         let date = Date().addingTimeInterval(-idleSeconds)
-        let formatter = ISO8601DateFormatter()
-        return formatter.string(from: date)
+        return isoFormatter.string(from: date)
     }
 
     private func getSessionState() -> String {
@@ -649,7 +690,7 @@ public final class SensorManager: NSObject, CLLocationManagerDelegate, @unchecke
         return "#007AFF"
     }
 
-    private func getCurrentClockSpeed() -> Int {
+    private static func queryClockSpeed() -> Int {
         var freq: UInt64 = 0
         var size = MemoryLayout<UInt64>.size
         if sysctlbyname("hw.cpufrequency_max", &freq, &size, nil, 0) == 0 && freq > 0 {
@@ -673,6 +714,10 @@ public final class SensorManager: NSObject, CLLocationManagerDelegate, @unchecke
             if brandStr.contains("m1") { return 3200 }
         }
         return 3200
+    }
+
+    private func getCurrentClockSpeed() -> Int {
+        return cachedClockSpeed
     }
 
     // MARK: - Phase 2 HASS.Agent Parity Telemetry Collectors

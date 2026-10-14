@@ -800,7 +800,7 @@ public final class MenuBarController: NSObject {
     }
 
     public func publishSensorState(trigger: String = "Periodic") {
-        let snapshot = sensorManager.collectSnapshot(trigger: trigger)
+        let snapshot = sensorManager.collectSnapshot(trigger: trigger, config: config)
         lastSnapshot = snapshot
         lastPublishedWindowTitle = snapshot.activeWindowTitle
 
