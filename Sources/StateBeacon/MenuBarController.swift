@@ -792,11 +792,13 @@ public final class MenuBarController: NSObject {
     private func startSensorLoop() {
         timer?.invalidate()
         let interval = max(5.0, config.updateInterval)
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+        let t = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             DispatchQueue.main.async {
                 self?.publishSensorState(trigger: "Periodic")
             }
         }
+        t.tolerance = interval * 0.1
+        self.timer = t
     }
 
     public func publishSensorState(trigger: String = "Periodic") {
